@@ -266,10 +266,23 @@ function go(i, { instant = false } = {}) {
   notes.innerHTML = `<h4>${slideNumber(current)} · ${sec.dataset.label || ''}</h4>${aside ? aside.innerHTML : ''}`;
 }
 
+// Digits typed before Enter jump to that footer slide number.
+let typed = '';
+
 addEventListener('keydown', e => {
   if (e.target.closest?.('input, textarea')) return;
   if ((e.key === ' ' || e.key === 'Enter') && e.target.closest?.('button')) return;
-  if (['ArrowRight', 'PageDown', ' ', 'Enter'].includes(e.key)) { e.preventDefault(); next(); }
+  if (/^[0-9]$/.test(e.key) && !e.metaKey && !e.ctrlKey && !e.altKey) { typed += e.key; return; }
+  if (e.key === 'Enter' && typed) {
+    e.preventDefault();
+    const i = sections.findIndex((_, j) => slideNumber(j) === +typed);
+    typed = '';
+    if (i >= 0) go(i);
+    return;
+  }
+  typed = '';
+  if (e.key === 'f') (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).catch(err => console.warn('full screen unavailable:', err.message));
+  else if (['ArrowRight', 'PageDown', ' ', 'Enter'].includes(e.key)) { e.preventDefault(); next(); }
   else if (['ArrowLeft', 'PageUp', 'Backspace'].includes(e.key)) { e.preventDefault(); prev(); }
   else if (e.key === 'Home') go(0);
   else if (e.key === 'End') go(sections.length - 1);

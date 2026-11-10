@@ -47,7 +47,8 @@ just serve
 ```
 
 Then open <http://localhost:8279>. Keys: arrows or space to move, `n` for speaker notes, `b` to
-jump to backup slides, `r` to replay the current slide's animation.
+jump to backup slides, `r` to replay the current slide's animation, `f` for full screen, and a
+slide number followed by Enter to jump to that slide.
 
 ## References
 
