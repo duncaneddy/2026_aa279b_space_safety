@@ -30,9 +30,24 @@ function text(parent, x, y, str, { size = 24, color = C.ink, anchor = 'start', w
   if (italic) t.setAttribute('font-style', 'italic');
   if (cls) t.setAttribute('class', cls);
   if (opacity !== 1) t.setAttribute('opacity', opacity);
-  t.textContent = str;
+  setText(t, str);
   return t;
 }
+
+// SVG text content with each "Pc" typeset as an italic P with subscript c.
+function setText(t, str) {
+  t.textContent = '';
+  String(str).split(/\bPc\b/).forEach((part, i) => {
+    if (i) {
+      svgEl('tspan', { 'font-family': 'KaTeX_Math, serif', 'font-style': 'italic' }, t).textContent = 'P';
+      svgEl('tspan', { dy: '0.3em', 'font-size': '0.7em' }, t).textContent = 'c';
+    }
+    if (part) { const sp = svgEl('tspan', i ? { dy: '-0.3em' } : {}, t); sp.textContent = part; }
+  });
+}
+
+// HTML with each "Pc" typeset by KaTeX.
+const pcHTML = str => str.replace(/\bPc\b/g, () => window.katex?.renderToString('P_c') ?? '<i>P</i><sub>c</sub>');
 
 function linPath(pts) { return pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(''); }
 
@@ -719,15 +734,24 @@ figures.starlinkVsGp = {
 /* ---------- OD pipeline ---------- */
 figures.odPipeline = {
   render(el) {
-    const svg = svgFor(el), W = el.offsetWidth, H = el.offsetHeight;
-    const steps = ['Measurements', 'Initial orbit (IOD)', 'Batch / EKF / UKF', 'State + covariance', 'Predict'];
+    const svg = svgFor(el), W = el.offsetWidth;
+    // [lines, colour, dashed]; outputs are drawn in Lagunita.
+    const steps = [
+      [['Measurements'], C.ink],
+      [['Initial orbit', 'determination', '(IOD)'], C.ink, true],
+      [['Orbit', 'determination', 'Batch LS · EKF · UKF'], C.ink],
+      [['Past state', '+ covariance'], C.lagunita],
+      [['Orbit', 'prediction'], C.ink],
+      [['Future state', '+ covariance'], C.lagunita],
+    ];
     const st = +(el.dataset.pipelineStep ?? 1), pipe = svgEl('g', st ? { 'data-step': st } : {}, svg);
-    const bw = 262, gap = (W - steps.length * bw) / (steps.length - 1), y = 40, h = 96;
-    el.__items = steps.map((s, i) => {
-      const g = svgEl('g', {}, pipe), x = i * (bw + gap);
-      strokePath(g, roughRect(x, y, bw, h, { seed: 70 + i }), { color: i === 3 ? C.lagunita : C.ink, width: 2.6 });
-      text(g, x + bw / 2, y + h / 2 + 9, s, { size: 25, anchor: 'middle', color: i === 3 ? C.lagunita : C.ink, weight: 600 });
-      if (i < steps.length - 1) strokePath(g, roughArrow(x + bw + 8, y + h / 2, x + bw + gap - 8, y + h / 2, { seed: 80 + i, head: 14 }), { color: C.ink, width: 2.6 });
+    const bw = 230, gap = (W - steps.length * bw) / (steps.length - 1), y = 30, h = 150;
+    el.__items = steps.map(([lines, col, dashed], i) => {
+      const g = svgEl('g', {}, pipe), x = i * (bw + gap), lh = 30, y0 = y + h / 2 - (lines.length - 1) * lh / 2 + 8;
+      strokePath(g, roughRect(x, y, bw, h, { seed: 70 + i }), { color: col, width: 2.6, dash: dashed ? '6 8' : null });
+      lines.forEach((l, k) => text(g, x + bw / 2, y0 + k * lh, l, { size: i === 2 && k === 2 ? 20 : 24, anchor: 'middle', color: i === 2 && k === 2 ? 'rgba(46,45,41,.65)' : col, weight: i === 2 && k === 2 ? 400 : 600 }));
+      if (dashed) text(g, x + bw / 2, y + h + 32, 'optional', { size: 22, anchor: 'middle', italic: true, color: 'rgba(46,45,41,.6)' });
+      if (i < steps.length - 1) strokePath(g, roughArrow(x + bw + 6, y + h / 2, x + bw + gap - 6, y + h / 2, { seed: 80 + i, head: 12 }), { color: C.ink, width: 2.6 });
       return g;
     });
   },
@@ -871,18 +895,50 @@ figures.gpRecord = {
 figures.tleGotchas = {
   needs: ['tle_gotchas'],
   render(el, d) {
-    const G = d.tle_gotchas, svg = svgFor(el), t = G.t_h;
-    const ymax = Math.max(...G.teme_vs_gcrf_km, ...G.mean_as_osc_km) * 1.1;
-    const ax = axes(svg, { xr: [0, Math.max(...t)], yr: [0, ymax], xlabel: 'hours', ylabel: 'position error (km)', right: 40, seed: 91 });
-    el.__a = exactPath(svg, t.map((tt, i) => [ax.x(tt), ax.y(G.mean_as_osc_km[i])]), { color: C.cardinal, width: 4 });
-    el.__b = exactPath(svg, t.map((tt, i) => [ax.x(tt), ax.y(G.teme_vs_gcrf_km[i])]), { color: C.lagunita, width: 4 });
-    el.__b.setAttribute('data-step', 1);
-    const n = t.length - 1;
-    el.__la = text(svg, ax.x(t[n]) - 10, ax.y(G.mean_as_osc_km[n]) - 18, 'TLE elements converted to a state, propagated with J2', { size: 24, anchor: 'end', color: C.cardinal, weight: 600 });
-    el.__lb = text(svg, ax.x(t[n]) - 10, ax.y(G.teme_vs_gcrf_km[n]) - 18, 'TEME used as if it were GCRF', { size: 24, anchor: 'end', color: C.lagunita, weight: 600 });
-    el.__lb.setAttribute('data-step', 1);
+    const G = d.tle_gotchas, svg = svgFor(el), t = G.t_h, n = t.length - 1, lo = 0.01;
+    const ax = axes(svg, { xr: [0, t[n]], yr: [lo, 2000], ylog: true, xticks: [0, 6, 12, 18, 24], yticks: [0.01, 0.1, 1, 10, 100, 1000], yfmt: v => (v < 1 ? String(v) : fmtInt(v)), xlabel: 'hours after TLE epoch', ylabel: 'position error (km)', right: 40, seed: 91 });
+    const curves = [
+      [G.mean_as_osc_km, C.cardinal, 'mean elements as osculating, J2', -18],
+      [G.teme_vs_gcrf_km, C.lagunita, 'SGP4 output in TEME, used as GCRF', -18],
+      [G.osc_init_numerical_km, C.green, 'correct state, numerical J2–J4 + drag', -18],
+    ].map(([v, col, lab, dy]) => {
+      const g = svgEl('g', {}, svg);
+      const runs = [[]];
+      t.forEach((tt, i) => { if (v[i] >= lo) runs[runs.length - 1].push([ax.x(tt), ax.y(v[i])]); else if (runs[runs.length - 1].length) runs.push([]); });
+      const paths = runs.filter(r => r.length > 1).map(r => exactPath(g, r, { color: col, width: 4 }));
+      const label = text(g, ax.x(t[n]) - 10, ax.y(v[n]) + dy, `${lab}: ${fmt(v[n], v[n] < 10 ? 1 : 0)} km`, { size: 24, anchor: 'end', color: col, weight: 600 });
+      return { g, paths, label };
+    });
+    const sec = el.closest('section'), boxes = [...sec.querySelectorAll('.reveal-box')];
+    let order = [];
+    const apply = animate => {
+      boxes.forEach((b, i) => b.classList.toggle('revealed', order.includes(i)));
+      curves.forEach((c, i) => {
+        const on = order.includes(i), was = c.g.style.visibility !== 'hidden';
+        c.g.style.visibility = on ? '' : 'hidden';
+        if (on && !was && animate) {
+          c.paths.forEach(p => { p.style.strokeDasharray = '100'; p.animate([{ strokeDashoffset: 100 }, { strokeDashoffset: 0 }], { duration: 1200, easing: 'cubic-bezier(.45,0,.3,1)' }); });
+          c.label.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 500, delay: 900, easing: EASE_IN, fill: 'backwards' });
+          boxes[i].querySelector('.back').animate([{ opacity: 0 }, { opacity: 1 }], { duration: 400, easing: EASE_IN });
+        }
+      });
+    };
+    const sync = (step, animate) => {
+      while (order.length > step) order.pop();
+      for (let i = 0; order.length < step && i < boxes.length; i++) if (!order.includes(i)) order.push(i);
+      apply(animate);
+    };
+    boxes.forEach((b, i) => b.addEventListener('click', e => {
+      e.stopPropagation();
+      if (order.includes(i)) return;
+      order.push(i);
+      sec.__step = order.length;
+      apply(true);
+    }));
+    sec.addEventListener('deckstep', e => sync(e.detail.step, e.detail.animate));
+    el.__reset = () => sync(sec.__step || 0, false);
+    el.__reset();
   },
-  animate(el, d, s, A) { drawOnAnim([el.__a], A, 500, 1400); fadeIn(el.__la, A, 1500); return onStep(el, 1, () => drawOnAnim([el.__b], A, 0, 1200)); },
 };
 
 /* ---------- brute force count ---------- */
@@ -932,6 +988,7 @@ figures.sieves = {
       card.className = 'card';
       card.setAttribute('data-rough', 'box');
       card.setAttribute('data-rough-key', `sieve-${key}`);
+      card.setAttribute('data-step', i + 1);
       card.style.cssText = `left:${i * (cw + gap)}px; top:0; width:${cw}px; height:${ch}px; padding:14px 18px;`;
       card.innerHTML = `<div class="dg" style="position:relative; width:100%; height:170px;"></div>
         <h3 style="color:${FC[key]}; margin:6px 0 4px">${title}</h3>
@@ -979,7 +1036,7 @@ figures.sieves = {
     const svg = svgFor(el), pw_ = S.pair_windows;
     const stages = [['all', pw_.total, C.gray], ['apsis', pw_.apsis, FC.apsis], ['path', pw_.path, FC.path], ['phase', pw_.phase, FC.phase], ['candidate events', S.events.length, C.cardinal]];
     const bx = 220, bw = W - bx - 220, y0 = ch + 60, bh = 40, x = v => bw * Math.log10(Math.max(v, 1)) / Math.log10(pw_.total);
-    const barsG = svgEl('g', { 'data-step': 1 }, svg);
+    const barsG = svgEl('g', { 'data-step': 4 }, svg);
     text(barsG, 0, y0 - 16, `${S.primary.name} vs ${fmtInt(c.catalog)} objects × ${Math.round(pw_.total / c.catalog)} half-hour windows over ${S.span_days} days (log scale) · D ≈ ${Math.round(D)} km`, { size: 22, color: 'rgba(46,45,41,.6)' });
     el.__bars = stages.map(([name, v, col], i) => {
       const g = svgEl('g', {}, barsG), y = y0 + i * (bh + 12);
@@ -992,15 +1049,16 @@ figures.sieves = {
   },
   animate(el, d, s, A) {
     const sec = el.closest('section');
-    // Cards start centered on the slide and move up when the bars appear.
-    if (!(sec.__step >= 1)) el.__cards.style.transform = `translateY(${el.__dy}px)`;
-    el.__diag.forEach((card, i) => fadeIn(card, A, 200 + i * 250));
-    fadeIn(el.__cards.querySelector('svg.rough-layer'), A, 200, 900);
-    return onStep(el, 1, () => {
+    // Cards appear one per click, centered on the slide, and move up when the bars appear.
+    el.__cards.style.transform = sec.__step >= 4 ? '' : `translateY(${el.__dy}px)`;
+    const back = e => { if (e.detail.step < 4) { el.__cards.getAnimations().forEach(x => x.cancel()); el.__cards.style.transform = `translateY(${el.__dy}px)`; } };
+    sec.addEventListener('deckstep', back);
+    const off = onStep(el, 4, () => {
       A.push(el.__cards.animate([{ transform: `translateY(${el.__dy}px)` }, { transform: 'none' }], { duration: 900, easing: EASE_MOVE, fill: 'forwards' }));
       el.__cards.style.transform = '';
       el.__bars.forEach((g, i) => A.push(g.animate([{ opacity: 0, transform: 'translateX(-20px)' }, { opacity: 1, transform: 'none' }], { duration: 600, delay: 600 + i * 350, easing: EASE_IN, ...FILL })));
     });
+    return () => { off(); sec.removeEventListener('deckstep', back); };
   },
 };
 
@@ -1122,7 +1180,7 @@ figures.mcCost = {
     side.className = 'interactive sans';
     side.style.cssText = 'position:absolute; left:1060px; top:20px; width:540px;';
     const seg = (name, opts) => `<div style="font-size:22px; color:var(--ink-50); margin:0 0 8px">${name}</div><div class="seg" data-name="${name}" style="display:flex; gap:10px; margin-bottom:26px">${opts.map(([lab, v], i) => `<button data-v="${v}" style="font:inherit; font-size:24px; padding:6px 16px; border-radius:10px; border:2px solid var(--ink-35); background:transparent; cursor:pointer">${lab}</button>`).join('')}</div>`;
-    side.innerHTML = `<div style="font-size:22px; color:var(--ink-50); margin-bottom:8px">True Pc</div>
+    side.innerHTML = `<div style="font-size:22px; color:var(--ink-50); margin-bottom:8px">True ${pcHTML('Pc')}</div>
       <div class="pcval" style="font-size:40px; font-weight:600; margin-bottom:18px"></div>
       <div class="slider" style="position:relative; left:0; width:520px; height:60px; margin-bottom:24px"><div class="track"></div><div class="fill"></div><div class="thumb"></div></div>
       ${seg('Confidence', [['90%', 1.644854], ['95%', 1.959964], ['99%', 2.575829]])}
@@ -1143,7 +1201,7 @@ figures.mcCost = {
       const f = (st.lp + 7) / 5;
       side.querySelector('.thumb').style.left = `${f * 100}%`; side.querySelector('.fill').style.width = `${f * 100}%`;
       const cpuH = (n * M.objects_per_sample * M.prop_seconds_per_object) / 3600;
-      side.querySelector('.out').innerHTML = `<div style="font-size:22px">Samples needed</div><b style="color:var(--cardinal); font-size:56px; line-height:1.15">${fmtInt(n)}</b><br>to see about ${fmtInt(n * p)} hits<br><span style="font-size:24px">× ${M.objects_per_sample} objects × ${fmt(M.prop_seconds_per_object, 1)} s each (${M.prop_span_days} days) ≈ <b style="color:var(--ink)">${fmtInt(cpuH)} CPU-hours</b> for one conjunction</span>`;
+      side.querySelector('.out').innerHTML = `<div style="font-size:22px">Samples needed</div><b style="color:var(--cardinal); font-size:56px; line-height:1.15">${fmtInt(n)}</b><br>to see about ${fmtInt(n * p)} hits<br><span style="font-size:24px">Each sample propagates ${M.objects_per_sample} objects for ${M.prop_span_days} days, ${fmt(M.prop_seconds_per_object, 2)} s each: <b style="color:var(--ink)">${fmtInt(cpuH)} CPU-hours</b> for one conjunction</span>`;
       side.querySelectorAll('.seg').forEach(g => g.querySelectorAll('button').forEach(b => {
         const on = +b.dataset.v === (g.dataset.name === 'Confidence' ? st.z : st.eps);
         b.style.background = on ? 'var(--ink)' : 'transparent'; b.style.color = on ? 'var(--board)' : 'var(--ink)'; b.style.borderColor = on ? 'var(--ink)' : 'var(--ink-35)';
@@ -1220,7 +1278,7 @@ figures.mcMethod = {
     el.__setCount = n => {
       const hits = el.__hitFlags.slice(0, n).filter(Boolean).length;
       el.__counter.textContent = `${fmtInt(n)} samples · ${hits} hit${hits === 1 ? '' : 's'}`;
-      el.__counter2.textContent = hits ? `Pc ≈ ${(hits / n).toExponential(1)}` : 'Pc ≈ 0 so far';
+      setText(el.__counter2, hits ? `Pc ≈ ${(hits / n).toExponential(1)}` : 'Pc ≈ 0 so far');
       el.__dots.forEach((c, i) => c.setAttribute('display', i < n ? 'inline' : 'none'));
     };
     el.__setCount(el.__dots.length);
@@ -1327,6 +1385,160 @@ figures.foster = {
   animate(el, d, s, A) { drawOnAnim([el.__miss], A, 300, 700); },
 };
 
+/* ---------- Foster 2D Pc in the browser ---------- */
+// Complementary error function with fractional error below 1.2e-7, so tail differences stay accurate.
+function erfc(x) {
+  const z = Math.abs(x), t = 1 / (1 + 0.5 * z);
+  const r = t * Math.exp(-z * z - 1.26551223 + t * (1.00002368 + t * (0.37409196 + t * (0.09678418 + t * (-0.18628806 + t * (0.27886807 + t * (-1.13520398 + t * (1.48851587 + t * (-0.82215223 + t * 0.17087277)))))))));
+  return x >= 0 ? r : 2 - r;
+}
+const ndtr = x => 0.5 * erfc(-x / Math.SQRT2);
+
+// Mass of N(0, cov) inside the circle of radius r centred at (miss, 0): the 1D reduction used by
+// scripts/pc_evolution.py (pc_circle), integrated with Simpson's rule.
+function pcCircle(miss, [[sxx, sxz], [, szz]], r, n = 600) {
+  const k = sxz / sxx, s = Math.sqrt(szz - (sxz * sxz) / sxx), lo = miss - r, dx = (2 * r) / n;
+  const f = x => {
+    const h = Math.sqrt(Math.max(r * r - (x - miss) ** 2, 0)), a = (-h - k * x) / s, b = (h - k * x) / s;
+    const mass = a < 0 ? ndtr(b) - ndtr(a) : ndtr(-a) - ndtr(-b);
+    return (Math.exp((-0.5 * x * x) / sxx) / Math.sqrt(2 * Math.PI * sxx)) * mass;
+  };
+  let sum = f(lo) + f(lo + n * dx);
+  for (let i = 1; i < n; i++) sum += (i % 2 ? 4 : 2) * f(lo + i * dx);
+  return (sum * dx) / 3;
+}
+
+/* ---------- Pc dilution: hits and misses converge as uncertainty grows ---------- */
+figures.dilution = {
+  needs: ['pc_evolution'],
+  render(el, d, state) {
+    const live = state === 'live', D = d.pc_evolution.dilution, svg = svgFor(el), ymin = 1e-8;
+    // Plot from 1σ = 1 m upward.
+    const i0 = D.sigma_scale.findIndex(k => k * D.sigma_major_m >= 1 - 1e-9), ks = D.sigma_scale.slice(i0), sx = ks.map(k => k * D.sigma_major_m);
+    const ax = axes(svg, { xr: [1, sx[sx.length - 1]], yr: [ymin, 1.5], xlog: true, ylog: true, left: 120, bottom: 90, seed: 1701,
+      xticks: [1, 10, 100, 1e3, 1e4], yticks: [1e-8, 1e-6, 1e-4, 1e-2, 1],
+      xfmt: v => (v >= 1e3 ? `${v / 1e3} km` : `${v} m`), yfmt: v => (v === 1 ? '1' : pow10(Math.round(Math.log10(v)))),
+      xlabel: '1σ position uncertainty, major axis', ylabel: 'probability of collision' });
+    const thr = ax.y(1e-4);
+    svgEl('line', { x1: ax.box.x0, x2: ax.box.x1, y1: thr, y2: thr, stroke: 'rgba(46,45,41,.35)', 'stroke-width': 2, 'stroke-dasharray': '8 8' }, svg);
+    text(svg, ax.box.x1, thr - 12, '1 in 10,000', { size: 22, anchor: 'end', color: 'rgba(46,45,41,.6)' });
+    // Curve segments above ymin; each end at ymin is interpolated in log Pc.
+    const curve = (pc, color, parent) => {
+      const segs = [];
+      let cur = null;
+      pc.forEach((v, i) => {
+        if (v >= ymin) {
+          if (!cur) { cur = []; segs.push(cur); if (i > 0) cur.push(edge(i - 1, i)); }
+          cur.push([ax.x(sx[i]), ax.y(v)]);
+        } else if (cur) { cur.push(edge(i, i - 1)); cur = null; }
+      });
+      function edge(lo, hi) {
+        const a = Math.log10(Math.max(pc[lo], 1e-300)), b = Math.log10(pc[hi]), u = (Math.log10(ymin) - a) / (b - a);
+        return [ax.x(10 ** (Math.log10(sx[lo]) + u * (Math.log10(sx[hi]) - Math.log10(sx[lo])))), ax.y(ymin)];
+      }
+      return segs.map(pts => exactPath(parent, pts, { color, width: 4 }));
+    };
+    const byMiss = m => D.by_miss.find(b => b.miss_m === m).pc.slice(i0);
+    const others = svgEl('g', live ? {} : { 'data-step': 1 }, svg);
+    el.__base = curve(byMiss(D.miss_m), C.ink, svg);
+    curve(byMiss(5), C.cardinal, others);
+    curve(byMiss(2000), C.green, others);
+    const k1 = ks.reduce((b, k, i) => (Math.abs(Math.log(k)) < Math.abs(Math.log(ks[b])) ? i : b), 0), pcCdm = byMiss(D.miss_m)[k1];
+    const [px, py] = [ax.x(sx[k1]), ax.y(pcCdm)];
+    svgEl('circle', { cx: px, cy: py, r: 8, fill: C.ink }, svg);
+    text(svg, px + 16, py - 16, `CDM: σ ${fmtInt(D.sigma_major_m)} m, Pc ${sci(pcCdm, 2)}`, { size: 22, weight: 600 });
+    legend(svg, ax.box.x1 - 400, ax.box.y1 + 30, [[`miss ${fmtInt(D.miss_m)} m (the CDM)`, C.ink]], { size: 22 });
+    legend(others, ax.box.x1 - 400, ax.box.y1 + 66, [['miss 5 m (inside R = 15 m)', C.cardinal], ['miss 2 km', C.green]], { size: 22, gap: 36 });
+    const lab = { size: 24, anchor: 'middle', italic: true, color: 'rgba(46,45,41,.7)' };
+    text(others, ax.x(2.2e4), ax.y(4e-5), 'all three ≈ equal', lab);
+    const sep = svgEl('g', live ? {} : { 'data-step': 2 }, svg);
+    text(sep, ax.x(16), ax.y(3e-2), '5 m miss: Pc → 1', lab);
+    text(sep, ax.x(16), ax.y(1e-7), '197 m and 2 km: Pc → 0', lab);
+
+    if (!live) return;
+    // Interactive curve: a miss-distance slider redraws it, a 1σ slider moves a dot along it.
+    const liveCurve = svgEl('g', {}, svg);
+    const guide = svgEl('line', { stroke: 'rgba(0,108,184,.4)', 'stroke-width': 1.5, 'stroke-dasharray': '5 6' }, svg);
+    const dot = svgEl('circle', { r: 10, fill: C.lagunita }, svg);
+    const ly = ax.box.y1 + 30 + 3 * 36, lx = ax.box.x1 - 400;
+    svgEl('line', { x1: lx, x2: lx + 28, y1: ly - 8, y2: ly - 8, stroke: C.lagunita, 'stroke-width': 4, 'stroke-linecap': 'round' }, svg);
+    const legendLive = text(svg, lx + 40, ly, '', { size: 22 });
+    const dist = m => (m >= 1000 ? `${fmt(m / 1000, m >= 1e4 ? 0 : 1)} km` : `${fmtInt(m)} m`);
+    const pcStr = p => (p < 1e-300 ? `< ${pow10(-300)}` : p >= 0.01 ? fmt(p, p >= 0.1 ? 2 : 3) : sci(p, 1));
+    const lsx = [0, Math.log10(sx[sx.length - 1])], lmiss = [0, 4];
+    // Hard-body radius on the miss slider: misses inside it are collision geometries.
+    const uR = (Math.log10(D.hbr_m) - lmiss[0]) / (lmiss[1] - lmiss[0]);
+    const rMark = `<div style="position:absolute; left:${uR * 100}%; top:14px; width:3px; height:32px; margin-left:-1.5px; background:var(--cardinal)"></div><div style="position:absolute; left:${uR * 100}%; top:50px; transform:translateX(-50%); font-size:20px; color:var(--cardinal); white-space:nowrap">R = ${fmt(D.hbr_m, 1)} m</div>`;
+    const panel = document.createElement('div');
+    panel.className = 'interactive sans';
+    panel.style.cssText = 'position:absolute; left:1220px; top:70px; width:460px;';
+    const slider = key => `<div style="font-size:22px; color:var(--ink-50); margin-bottom:4px">${key === 'miss' ? 'Miss distance' : '1σ uncertainty, major axis'}: <b class="v-${key}" style="color:var(--ink)"></b></div><div class="slider s-${key}" style="position:relative; width:440px; margin-bottom:${key === 'miss' ? 40 : 16}px"><div class="track"></div><div class="fill"></div>${key === 'miss' ? rMark : ''}<div class="thumb"></div></div>`;
+    panel.innerHTML = `<div style="font-size:29px; font-weight:600; color:var(--lagunita); margin-bottom:34px">Choose a miss distance and 1σ</div>${slider('miss')}${slider('sigma')}<div class="v-pc" style="font-size:30px; font-weight:600; color:var(--lagunita)"></div>`;
+    el.appendChild(panel);
+    const st = { lm: Math.log10(100), ls: Math.log10(D.sigma_major_m) };
+    let shownMiss = null;
+    const draw = () => {
+      const miss = 10 ** st.lm, sig = 10 ** st.ls, k = sig / D.sigma_major_m;
+      if (miss !== shownMiss) {
+        liveCurve.replaceChildren();
+        curve(ks.map(kk => pcCircle(miss, D.cov_xy_m2.map(r => r.map(v => v * kk * kk)), D.hbr_m)), C.lagunita, liveCurve);
+        shownMiss = miss;
+        legendLive.textContent = `miss ${dist(miss)} (slider)`;
+      }
+      const pc = pcCircle(miss, D.cov_xy_m2.map(r => r.map(v => v * k * k)), D.hbr_m), x = ax.x(sig), y = ax.y(Math.max(pc, ymin));
+      dot.setAttribute('cx', x); dot.setAttribute('cy', y);
+      guide.setAttribute('x1', x); guide.setAttribute('x2', x); guide.setAttribute('y1', ax.box.y0); guide.setAttribute('y2', y);
+      [['miss', st.lm, lmiss, miss <= D.hbr_m ? `${dist(miss)} (inside R)` : dist(miss)], ['sigma', st.ls, lsx, dist(sig)]].forEach(([key, v, [a0, a1], label]) => {
+        const u = (v - a0) / (a1 - a0);
+        panel.querySelector(`.s-${key} .thumb`).style.left = `${u * 100}%`;
+        panel.querySelector(`.s-${key} .fill`).style.width = `${u * 100}%`;
+        panel.querySelector(`.v-${key}`).textContent = label;
+      });
+      panel.querySelector('.v-pc').innerHTML = `${pcHTML('Pc')} = ${pcStr(pc)}`;
+    };
+    [['miss', 'lm', lmiss], ['sigma', 'ls', lsx]].forEach(([key, field, [a0, a1]]) => {
+      const sl = panel.querySelector(`.s-${key}`);
+      const onMove = e => { const r = sl.getBoundingClientRect(); st[field] = a0 + (a1 - a0) * Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)); draw(); };
+      sl.addEventListener('pointerdown', e => { e.stopPropagation(); sl.setPointerCapture(e.pointerId); onMove(e); sl.onpointermove = onMove; });
+      sl.addEventListener('pointerup', () => { sl.onpointermove = null; });
+    });
+    panel.addEventListener('pointerdown', e => e.stopPropagation());
+    panel.addEventListener('click', e => e.stopPropagation());
+    el.__reset = () => { st.lm = Math.log10(100); st.ls = Math.log10(D.sigma_major_m); draw(); };
+    draw();
+  },
+  animate(el, d, s, A) { if (el.dataset.state !== 'live') drawOnAnim(el.__base, A, 300, 1300); },
+};
+
+/* ---------- Space Force screening schedule (EST, 24 h cycle) ---------- */
+figures.screeningSchedule = {
+  render(el) {
+    const svg = svgFor(el), W = el.offsetWidth;
+    const tw = 120, cw = (W - tw) / 4, pad = 12, y0 = 110, rh = 160, ch = 100;
+    const heads = [['Near-Earth', 'catalog vs catalog'], ['Deep space', 'catalog vs catalog'], ['O/O ephemeris', 'vs SP catalog'], ['O/O ephemeris', 'vs O/O ephemeris']];
+    const cells = [['Concern list', 'All HAC'], ['Concern list', 'Concern list'], ['All HAC', 'Concern list']];
+    const oo = svgEl('g', { 'data-step': 1 }, svg);
+    heads.forEach(([a, b], c) => {
+      const g = c < 2 ? svg : oo, x = tw + c * cw + cw / 2, col = c < 2 ? C.ink : C.lagunita;
+      text(g, x, 34, a, { size: 26, weight: 600, anchor: 'middle', color: col });
+      text(g, x, 66, b, { size: 22, anchor: 'middle', color: 'rgba(46,45,41,.6)' });
+    });
+    ['0500Z', '1300Z', '2100Z'].forEach((t, r) => {
+      const y = y0 + r * rh;
+      text(svg, 0, y + ch / 2 + 9, t, { size: 26, weight: 600, family: "'Source Code Pro', Menlo, monospace" });
+      for (let c = 0; c < 4; c++) {
+        const g = c < 2 ? svg : oo, x = tw + c * cw + pad, w = cw - 2 * pad;
+        const label = c < 2 ? cells[r][c] : c === 2 ? 'O/O vs HAC' : 'O/O vs O/O', full = label === 'All HAC';
+        if (full) svgEl('rect', { x, y, width: w, height: ch, fill: 'rgba(46,45,41,.08)' }, g);
+        strokePath(g, roughRect(x, y, w, ch, { seed: 1800 + r * 10 + c }), { color: c < 2 ? C.ink : C.lagunita, width: full ? 3.2 : 2.2 });
+        text(g, x + w / 2, y + ch / 2 + 9, label, { size: 26, weight: full ? 700 : 400, anchor: 'middle', color: c < 2 ? C.ink : C.lagunita });
+        if (c < 2 && r < 2) strokePath(g, roughArrow(x + w / 2, y + ch + 8, x + w / 2, y + rh - 8, { seed: 1850 + r * 10 + c, head: 12 }), { color: 'rgba(46,45,41,.5)', width: 2.2 });
+      }
+    });
+    text(svg, tw + pad, y0 + 3 * rh - 10, 'One full catalog screening per regime each day, then two concern-list passes 8 h apart.', { size: 22, italic: true, color: 'rgba(46,45,41,.65)' });
+  },
+};
+
 /* ---------- CDM card ---------- */
 figures.cdmCard = {
   needs: ['pc'],
@@ -1346,7 +1558,7 @@ figures.cdmCard = {
       ['CR_R', `${fmt(C2?.[0]?.[0] ?? 0, 1)} [m**2]`],
       ['CT_T', `${fmt(C2?.[1]?.[1] ?? 0, 1)} [m**2]`],
     ];
-    el.innerHTML = `<div data-rough="box" data-color="ink" data-rough-key="cdm" style="position:absolute; inset:0; padding:36px 44px; font-family:'Source Code Pro', Menlo, monospace; font-size:25px; line-height:1.6; background:rgba(255,255,255,.4)">${rows.map(([k, v]) => `<div><span style="color:var(--ink-50)">${k.padEnd(28, ' ').replace(/ /g, '&nbsp;')}</span>= <b style="color:${/PROBABILITY$|MISS/.test(k) ? 'var(--cardinal)' : 'var(--ink)'}">${v}</b></div>`).join('')}</div>`;
+    el.innerHTML = `<div data-rough="box" data-color="ink" data-rough-key="cdm" style="position:absolute; inset:0; padding:36px 44px; font-family:'Source Code Pro', Menlo, monospace; font-size:23px; line-height:1.7; white-space:nowrap; background:rgba(255,255,255,.4)">${rows.map(([k, v]) => `<div><span style="color:var(--ink-50)">${k.padEnd(29, ' ').replace(/ /g, '&nbsp;')}</span>= <b style="color:${/PROBABILITY$|MISS/.test(k) ? 'var(--cardinal)' : 'var(--ink)'}">${v}</b></div>`).join('')}</div>`;
   },
   animate(el, d, s, A) { fadeIn(el.firstElementChild, A, 300, 900); },
 };
@@ -1404,17 +1616,38 @@ figures.pcEvolution = {
     strokePath(svg, roughLine(ax.box.x0, thr, ax.box.x1, thr, { seed: 802, passes: 1 }), { color: 'rgba(46,45,41,.45)', width: 2 });
     text(svg, ax.box.x1 + 14, thr + 8, '1 in 10,000', { size: 22, color: 'rgba(46,45,41,.6)' });
     const cols = [C.green, C.cardinal, C.lagunita];
-    el.__lines = P.scenarios.map((s, k) => {
-      const g = svgEl('g', k ? { 'data-step': k } : {}, svg), pts = s.updates.map(u => [ax.x(u.t_before_tca_h / 24), ax.y(Math.max(u.pc, 1e-10))]);
-      exactPath(g, pts, { color: cols[k % 3], width: 3.5 });
-      pts.forEach(p => svgEl('circle', { cx: p[0], cy: p[1], r: 6, fill: cols[k % 3] }, g));
-      const last = pts[pts.length - 1];
-      s.name.split(': ').forEach((part, j) => text(g, ax.box.x1 + 14, last[1] + 8 + j * 28, part, { size: j ? 22 : 24, color: cols[k % 3], weight: j ? 400 : 600 }));
-      return g;
+    // One click per update: each point (and the segment into it) is its own step, scenario by scenario.
+    const dist = m => (m >= 1000 ? `${fmt(m / 1000, m >= 1e4 ? 0 : 1)} km` : `${fmtInt(m)} m`);
+    const when = h => (h >= 48 ? `${fmt(h / 24, h % 24 ? 1 : 0)} days` : `${h} h`);
+    const steps = [];
+    P.scenarios.forEach((s, k) => {
+      const col = cols[k % 3], pts = s.updates.map(u => [ax.x(u.t_before_tca_h / 24), ax.y(Math.max(u.pc, 1e-10))]);
+      pts.forEach((p, i) => {
+        const g = svgEl('g', { 'data-step': steps.length + 1 }, svg);
+        if (i) svgEl('line', { x1: pts[i - 1][0], y1: pts[i - 1][1], x2: p[0], y2: p[1], stroke: col, 'stroke-width': 3.5, 'stroke-linecap': 'round' }, g);
+        svgEl('circle', { cx: p[0], cy: p[1], r: 6, fill: col }, g);
+        if (i === pts.length - 1) s.name.split(': ').forEach((part, j) => text(g, ax.box.x1 + 14, p[1] + 8 + j * 28, part, { size: j ? 22 : 24, color: col, weight: j ? 400 : 600 }));
+        steps.push({ s, u: s.updates[i], p, col });
+      });
     });
+    // Readout for the newest point, shown while stepping through the updates.
+    const rx = W - 400, ro = svgEl('g', {}, svg), ring = svgEl('circle', { r: 13, fill: 'none', 'stroke-width': 3 }, ro);
+    const rt = [[0, 26, 600], [44, 24, 400], [98, 36, 600], [146, 24, 400], [182, 24, 400]].map(([dy, size, weight]) => text(ro, rx, 70 + dy, '', { size, weight }));
+    const show = n => {
+      const cur = steps[n - 1];
+      ro.style.display = cur ? '' : 'none';
+      if (!cur) return;
+      ring.setAttribute('cx', cur.p[0]); ring.setAttribute('cy', cur.p[1]); ring.setAttribute('stroke', cur.col);
+      const [name, sub] = cur.s.name.split(': ');
+      [[`${name}: ${sub}`, cur.col], [`Update ${when(cur.u.t_before_tca_h)} before TCA`, 'rgba(46,45,41,.7)'], [`Pc = ${sci(cur.u.pc, 1)}`, cur.u.pc >= 1e-4 ? C.cardinal : C.ink],
+        [`estimated miss ${dist(cur.u.est_miss_m)}`, 'rgba(46,45,41,.7)'], [`along-track 1σ ${dist(cur.u.sigma_T_m)}`, 'rgba(46,45,41,.7)']]
+        .forEach(([str, color], k) => { setText(rt[k], str); rt[k].setAttribute('fill', color); });
+    };
+    el.closest('section').addEventListener('deckstep', e => show(e.detail.step));
+    show(0);
     const F = P.false_alarm_stats;
     if (F) {
-      const g = svgEl('g', { 'data-step': P.scenarios.length }, svg), x0 = W - 400, y0 = 60;
+      const g = svgEl('g', { 'data-step': steps.length + 1 }, svg), x0 = W - 400, y0 = 60;
       text(g, x0, y0, `${fmtInt(F.by_true_miss[0].runs)} simulated events each:`, { size: 24, color: 'rgba(46,45,41,.7)' });
       text(g, x0, y0 + 50, 'true miss', { size: 22, color: 'rgba(46,45,41,.6)' });
       text(g, x0 + 150, y0 + 50, 'Pc ≥ 10⁻⁴', { size: 22, color: 'rgba(46,45,41,.6)' });
@@ -1430,15 +1663,7 @@ figures.pcEvolution = {
       el.__stats = g;
     }
   },
-  animate(el, d, s, A) {
-    const draw = (g, d0) => {
-      drawOnAnim([g.querySelector('path')], A, d0, 1600);
-      g.querySelectorAll('circle').forEach((c, i, arr) => fadeIn(c, A, d0 + 1600 * i / arr.length, 250));
-      g.querySelectorAll('text').forEach(t => fadeIn(t, A, d0 + 1600));
-    };
-    draw(el.__lines[0], 400);
-    return onStep(el, 1, () => el.__lines.slice(1).forEach(g => draw(g, 0)));
-  },
+  animate() {},
 };
 
 /* ---------- decision ladder ---------- */
@@ -1476,23 +1701,39 @@ function wrapText(parent, x, y, str, width, size, color, italic = false) {
 /* ---------- after a maneuver ---------- */
 figures.afterManeuver = {
   render(el) {
-    const svg = svgFor(el), W = el.offsetWidth;
-    const steps = [['Plan maneuver', C.ink], ['Re-screen new trajectory', C.ink], ['Publish OEM with the burn', C.lagunita], ['Space Force screens it (4 to 12 h)', C.ink], ['New CDMs?', C.cardinal]];
-    const bw = 280, gap = (W - steps.length * bw) / (steps.length - 1), y = 120, h = 150;
-    el.__items = steps.map(([s, col], i) => {
-      const g = svgEl('g', {}, svg), x = i * (bw + gap);
-      strokePath(g, roughRect(x, y, bw, h, { seed: 950 + i }), { color: col, width: 2.8 });
-      wrapText(g, x + 24, y + 60, s, bw - 48, 31, col);
-      if (i < steps.length - 1) strokePath(g, roughArrow(x + bw + 8, y + h / 2, x + bw + gap - 8, y + h / 2, { seed: 960 + i, head: 14 }), { color: C.ink, width: 2.6 });
+    const svg = svgFor(el), W = el.offsetWidth, bw = 320, h = 140, gap = (W - 4 * bw) / 3;
+    const X = c => c * (bw + gap), r1 = 50, r2 = r1 + h + 60, r3 = r2 + h + 90;
+    const box = (parent, c, y, s, col, seed) => {
+      const g = svgEl('g', {}, parent);
+      strokePath(g, roughRect(X(c), y, bw, h, { seed }), { color: col, width: 2.8 });
+      wrapText(g, X(c) + 22, y + 44, s, bw - 44, 29, col);
+      return g;
+    };
+    const arrow = (g, x1, y1, x2, y2, seed, col = C.ink) => strokePath(g, roughArrow(x1, y1, x2, y2, { seed, head: 14 }), { color: col, width: 2.6 });
+    text(svg, 0, r1 - 18, 'Baseline: Space Force screens your candidate maneuvers', { size: 24, weight: 600, color: 'rgba(46,45,41,.6)' });
+    const loopSteps = [
+      [0, r1, 'Get CDM', C.cardinal], [1, r1, 'Plan candidate maneuvers', C.ink],
+      [2, r1, 'Submit them to Space-Track for screening', C.ink], [3, r1, 'Wait about 8 h for results', C.ink],
+      [3, r2, 'Decide which maneuver to fly', C.ink], [2, r2, 'Publish the OEM with the burn', C.lagunita],
+      [1, r2, 'Wait for CDMs on the new OEM', C.ink], [0, r2, 'Repeat until TCA', C.cardinal],
+    ];
+    const items = loopSteps.map(([c, y, s, col], i) => {
+      const g = box(svg, c, y, s, col, 950 + i);
+      if (i < 3) arrow(g, X(c) + bw + 8, y + h / 2, X(c + 1) - 8, y + h / 2, 960 + i);
+      else if (i === 3) arrow(g, X(c) + bw / 2, y + h + 8, X(c) + bw / 2, r2 - 8, 963);
+      else if (i < 7) arrow(g, X(c) - 8, y + h / 2, X(c - 1) + bw + 8, y + h / 2, 960 + i);
+      else arrow(g, X(c) + bw / 2, y - 8, X(c) + bw / 2, r1 + h + 8, 967, C.cardinal);
       return g;
     });
-    const back = svgEl('g', { 'data-step': 1 }, svg), xL = (steps.length - 1) * (bw + gap) + bw / 2, x0 = bw / 2;
-    strokePath(back, roughPolyline([[xL, y + h + 10], [xL, y + h + 120], [x0, y + h + 120]], { seed: 970 }), { color: C.cardinal, width: 2.6 });
-    strokePath(back, roughArrow(x0, y + h + 120, x0, y + h + 12, { seed: 971, head: 16 }), { color: C.cardinal, width: 2.6 });
-    text(back, (xL + x0) / 2, y + h + 160, 'repeat until TCA', { size: 26, anchor: 'middle', color: C.cardinal, italic: true });
-    el.__back = back;
+    const own = svgEl('g', { 'data-step': 1 }, svg);
+    strokePath(own, roughRect(X(2) - 16, r1 - 16, 2 * bw + gap + 32, h + 32, { seed: 975 }), { color: C.lagunita, width: 2.4, dash: '8 8' });
+    text(own, 0, r3 - 18, 'In-house: replace the dashed steps with your own screening (SSA Sharing Agreement)', { size: 24, weight: 600, color: C.lagunita });
+    [['Ingest the HAC (SP) ephemerides every 24 h', C.lagunita], ['Screen candidate maneuvers yourself', C.lagunita], ['Results in minutes, on demand', C.lagunita], ['Space Force still screens the published OEM', C.ink]]
+      .forEach(([s, col], c) => { const g = box(own, c, r3, s, col, 980 + c); if (c < 3) arrow(g, X(c) + bw + 8, r3 + h / 2, X(c + 1) - 8, r3 + h / 2, 990 + c); });
+    text(own, 0, r3 + h + 40, 'No covariance in SP files: Pc needs your own estimate or the CDM values.', { size: 24, italic: true, color: 'rgba(46,45,41,.6)' });
+    el.__items = items;
   },
-  animate(el, d, s, A) { el.__items.forEach((g, i) => fadeIn(g, A, 300 + i * 350)); },
+  animate(el, d, s, A) { el.__items.forEach((g, i) => fadeIn(g, A, 300 + i * 250)); },
 };
 
 /* ---------- covariance banana (interactive) ---------- */
@@ -1572,9 +1813,9 @@ figures.resources = {
       ['CARA Analysis Tools', 'Reference Pc implementations (2D, 3D, Monte Carlo)', 'github.com/nasa/CARA_Analysis_Tools'],
       ['Spaceflight Safety Handbook', 'Space Force services, screening volumes, criteria (v1.7)', 'space-track.org/documents'],
       ['CelesTrak', 'GP data, SOCRATES, documentation, history', 'celestrak.org'],
-      ['brahe', 'Open-source astrodynamics in Rust and Python', 'github.com/duncaneddy/brahe'],
     ];
-    el.innerHTML = items.map(([t, s, u], i) => `<div class="card" data-rough="box" data-rough-key="res${i}" style="left:${(i % 4) * 410}px; top:${Math.floor(i / 4) * 340}px; width:380px; height:300px; text-align:left;"><h3 style="font-size:34px">${t}</h3><p style="font-size:24px">${s}</p><p class="sans" style="font-style:normal; font-size:22px; margin-top:14px; color:var(--lagunita); overflow-wrap:anywhere">${u}</p></div>`).join('');
+    const rowOffset = i => (4 - Math.min(4, items.length - Math.floor(i / 4) * 4)) * 205;
+    el.innerHTML = items.map(([t, s, u], i) => `<div class="card" data-rough="box" data-rough-key="res${i}" style="left:${rowOffset(i) + (i % 4) * 410}px; top:${Math.floor(i / 4) * 340}px; width:380px; height:300px; text-align:left;"><h3 style="font-size:34px">${t}</h3><p style="font-size:24px">${pcHTML(s)}</p><p class="sans" style="font-style:normal; font-size:22px; margin-top:14px; color:var(--lagunita); overflow-wrap:anywhere">${u}</p></div>`).join('');
   },
   animate(el, d, s, A) { [...el.children].forEach((c, i) => A.push(c.animate([{ opacity: 0, transform: 'translateY(24px)' }, { opacity: 1, transform: 'none' }], { duration: 600, delay: 200 + i * 120, easing: EASE_IN, ...FILL }))); },
 };
@@ -1635,11 +1876,14 @@ figures.adopters = {
 };
 
 /* ---------- repo link ---------- */
-figures.repoLink = {
+figures.closeLinks = {
   render(el) {
-    el.innerHTML = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; gap:36px;"><img src="img/repo-qr.webp" alt="QR code for the lecture repository" style="height:100%;"><div class="sans" style="font-size:30px; color:var(--ink-50); line-height:1.4">Scripts and slides<br><b style="color:var(--lagunita)">github.com/duncaneddy/2026_aa279b_space_safety</b></div></div>`;
+    const link = (img, alt, label, url) => `<div style="display:flex; align-items:center; gap:32px; height:100%;"><img src="${img}" alt="${alt}" style="height:100%;"><div class="sans" style="font-size:30px; color:var(--ink-50); line-height:1.4">${label}<br><b style="color:var(--lagunita)">${url}</b></div></div>`;
+    el.innerHTML = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; gap:90px;">${
+      link('img/repo-qr.webp', 'QR code for the lecture repository', 'Scripts and slides', 'github.com/duncaneddy/<br>2026_aa279b_space_safety')}${
+      link('img/brahe-qr.webp', 'QR code for brahe.space', 'brahe', 'brahe.space')}</div>`;
   },
-  animate(el, d, s, A) { fadeIn(el.firstElementChild, A, 1200); },
+  animate(el, d, s, A) { fadeIn(el.firstElementChild, A); },
 };
 
 /* ---------- backup: all-vs-all ---------- */

@@ -73,9 +73,9 @@ pocs/         gitignored scratch
 Measure: 9 catalog [S:catalog] · 10 [Q] find 10 cm at 1,000 / 36,000 km · 11 1/R^4 vs 1/R^2 · 12 SSN map + FOV [S:ssn_sensors] · 13 USG free, warns everyone · 14 GPS: Starlink operator vs GP [S:starlink_vs_gp] · 15 [Q] fixes to 5-day orbit · 16 measurement models, IOD, EKF [S:gps_od]
 Catalog: 17 what is it · 18 [Q] rideshare, UCTs · 19 MHT · 20 TLE/GP history · 21 gotchas [S:tle_gotchas] · 22 number exhaustion, GP/OMM
 Screen: 23 [Q] how to check · 24 570,898,945 pairs · 25 apsis/path/phase sieves [S:screening] · 26 [Q] why a box; sweep animation [S:screening]
-Assess: 27 [Q] how to compute Pc · 28 MC cost [S:pc] · 29 Foster 2D [S:pc] · 30 3D / MC when 2D breaks · 31 CDMs, thresholds · aside: covariance realism, banana [S:covariance_banana]
+Assess: 27 [Q] how to compute Pc · 28 MC cost [S:pc] · 29 Foster 2D [S:pc] · 30 3D / MC when 2D breaks · 31 CDMs, thresholds · aside: covariance realism, banana [S:covariance_banana] · aside: ephemeris quality: operator vs GP [S:starlink_vs_gp], GPS OD prediction [S:gps_od], dilution for hit / CDM / 2 km miss [S:pc_evolution], public GP vs SP (HAC) vs operator ephemerides
 Decide: 32 [Q] poll Pc 1e-3 at 3 d · 33 trade space [S:maneuver] · 34 Pc evolution, dilution [S:pc_evolution] · 35 unknowns · 36 rules, tables, POMDP · 37 rescreen, OEM, SpaceX on-board
-Share: after maneuver: rescreen, share ephemerides
+Share: 19 SDS screening types and schedule (handbook pp. 5–9) · after maneuver: baseline Space Force rescreen loop, then in-house screening against ingested SP ephemerides
 
 ### Act 3: New operator (~4 min)
 40 [Q] what must you do · 41 resources · 42 "that's a lot" · 43 brahe · 44 close
@@ -93,14 +93,14 @@ as named in keys. ECI = GCRF unless key says otherwise.
 - `catalog.json`: `{generated_utc, epoch, source, counts:{total,payload,starlink,other_payload,rocket_body,debris,unknown,active_payloads,starlink_active,leo,meo,geo,heo}, objects:{type:["P"|"S"(Starlink)|"R"|"D"|"U",...], xyz_km:[[x,y,z],...], alt_km:[...]}}`
 - `debris_clouds.json`: `{generated_utc, epoch, groups:[{name, parent_norad, cataloged, on_orbit, xyz_km:[[...]], alt_km:[...]}], collision:{tca_utc, miss_km_sgp4, rel_speed_kms, crossing_angle_deg, orbits:[{name, xyz_km:[[...]]}]}}`
 - `ssn_sensors.json`: `{generated_utc, sensors:[{name, system, type, lon, lat, alt_m, el_min_deg, range_max_km}], footprints:{leo_alt_km, geo_alt_km, rings:{<name>:{leo:[[lon,lat]...], geo:[[lon,lat]...]|null}}}, sample_track:{name, norad, t_s:[...], lonlat:[[lon,lat]...], windows:[{sensor,start_s,end_s}]}, stats:{passes_24h, longest_gap_h}, radar_ratio:{leo_km, geo_km, snr_ratio}}`
-- `tle_gotchas.json`: `{generated_utc, object:{name,norad}, example_tle:[l1,l2], t_h:[...], teme_vs_gcrf_km:[...], mean_as_osc_km:[...], notes:{...}}`
+- `tle_gotchas.json`: `{generated_utc, object:{name,norad}, example_tle:[l1,l2], t_h:[...], teme_vs_gcrf_km:[...], mean_as_osc_km:[...], osc_init_j2_km:[...], osc_init_numerical_km:[...], notes:{...}}`
 - `starlink_vs_gp.json`: `{generated_utc, object:{name,norad}, operator_epoch, gp_epoch, t_h:[...], gp_minus_operator_rtn_km:{R,T,N}, operator_sigma_rtn_km:{R,T,N}|null}`
 - `gps_od.json`: `{generated_utc, config:{...}, est_end_h, t_h:[...], err_rtn_m:{R,T,N}, sigma3_rtn_m:{R,T,N}, meas_t_h:[...]}`
 - `covariance_banana.json`: `{generated_utc, config:{...}, snapshots:[{t_h, samples_xy_km:[[along,radial]...], ellipse_cov_km2:[[a,b],[b,c]], arc_xy_km:[[...]]}]}` (x = along-track tangent at nominal, y = radial, Cartesian, nominal at origin)
 - `screening.json`: `{generated_utc, primary:{name,norad}, span_days, box_km:{R,T,N}, counts:{catalog,apsis,path,phase,box,lt_5km}, recall:{brute_force_events, retained}, events:[{norad,name,tca_utc,miss_km,rel_speed_kms}], rel_speeds_kms:[...], hero:{secondary:{name,norad}, tca_utc, miss_km, rel_speed_kms, t_s:[...], rel_rtn_km:[[R,T,N]...], primary_xyz_km:[[...]], secondary_xyz_km:[[...]]}, all_vs_all_paper:{catalog:33791,brute:570898945,fixed50:228619849,adaptive:162819449,cite:"Srinivas et al. 2026, arXiv:2610.11645"}}`
 - `pc.json`: `{generated_utc, validation:[{case,pc_ours,pc_cara,rel_err}], example:{miss_m, rel_speed_kms, hbr_m, pc_foster, pc_mc, mc_n, mc_hits, encounter_plane:{miss_xy_m, cov_xy_m2, mc_samples_xy_m, mc_hit}, ellipsoids:{cov1_rtn_m2, cov2_rtn_m2, rel_pos_m, rel_vel_ms}}, mc_cost:{pc:[...], n_samples:[...], rel_err, conf, prop_seconds_per_sample, cpu_hours:[...]}}`
 - `maneuver.json`: `{generated_utc, conjunction:{...}, lead_h:[...], dv_cms:[...], log10_pc:[[lead x dv]], miss_km:[[lead x dv]], threshold, min_dv_cms:[per lead]}`
-- `pc_evolution.json`: `{generated_utc, dilution:{sigma_scale:[...], pc:[...], miss_m, hbr_m}, sigma_growth_source, scenarios:[{name, true_miss_m, updates:[{t_before_tca_h, est_miss_m, sigma_T_m, pc}]}]}`
+- `pc_evolution.json`: `{generated_utc, dilution:{sigma_scale:[...], pc:[...], miss_m, hbr_m, sigma_major_m, by_miss:[{miss_m, pc:[...]}]}, sigma_growth_source, scenarios:[{name, true_miss_m, updates:[{t_before_tca_h, est_miss_m, sigma_T_m, pc}]}]}`
 
 ## Copy rule
 
@@ -138,15 +138,13 @@ tautologies or flourishes. See `design-guidelines.md` section 8.
 | 15 | Radar vs optical | snrScaling ← ssn_sensors | fresh |
 | 16–17 | SSN map / SSN gaps | ssnMap ← ssn_sensors, land; state=track | continuation |
 | 18 | Free warnings | text | fresh |
-| 19 | Operator data | starlinkVsGp | fresh |
 | 20–21 | OD Q / Measurement models | odPipeline | magic move q-od |
-| 22 | OD result | gpsOd (per-orbit envelope) | fresh |
 | 23–28 | Catalog section | mhtTree, tleCard, tleGotchas | fresh |
 | 29–33 | Screen section | bruteForce, sieves, boxSweep ← screening | magic move q-box |
-| 34–38 | Assess section | mcLoop, mcMethod, mcCost, foster, cdmCard ← pc; banana (interactive slider) | fresh |
+| 34–38 | Assess section | mcLoop, mcMethod, mcCost, foster, cdmCard ← pc; banana (interactive slider); ephemeris quality aside: starlinkVsGp, gpsOd, dilution ← pc_evolution (continuation "Dilution live": state=live adds a slider-driven fourth curve, Pc computed in the browser), screening sources cards | fresh |
 | 39–43 | Decide section | tradespace ← maneuver, pcEvolution ← pc_evolution, decisionLadder | fresh |
-| 44–47 | Share section | afterManeuver | fresh |
-| 48–55 | New operator, brahe, close | resources, brahe modules, LEO code, Mars code + marsTransfer ← mars_transfer, adopters, repoLink | magic move q-op |
+| 44–47 | Share section | screeningSchedule, afterManeuver (baseline + in-house rows) | fresh |
+| 48–55 | New operator, brahe, close | resources, brahe modules, LEO code, Mars code + marsTransfer ← mars_transfer, adopters, closeLinks (repo + brahe QR) | magic move q-op |
 | B | Backup | allVsAll, ssnTable, statements | fresh |
 
 ### Needed from Duncan

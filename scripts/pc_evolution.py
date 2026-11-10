@@ -9,7 +9,10 @@
    k^2 (every 1-sigma scaled by k) at fixed miss distance and HBR. Pc rises
    as the ellipse grows toward the miss vector, peaks, then falls as the same
    probability mass is spread over an ever larger area: a small Pc can mean
-   "safe" or "we don't know".
+   "safe" or "we don't know". The same scaling is repeated for other miss
+   distances along the CDM miss direction (dilution.by_miss): a pass inside
+   the hard-body radius and a distant pass give nearly the same Pc when the
+   covariance is large, and separate toward 1 and 0 as it shrinks.
 
 2. Covariance growth with time to TCA, from public data:
    - Primary: SpaceX's public Starlink operator ephemerides (Modified ITC,
@@ -55,7 +58,7 @@ Run:
 
 Output (deck/data/pc_evolution.json):
   {generated_utc, dilution:{sigma_scale, pc, miss_m, hbr_m, max_pc,
-   sigma_scale_at_max}, sigma_growth_source, sigma_growth:{...},
+   sigma_scale_at_max, sigma_major_m, by_miss:[{miss_m, pc}]}, sigma_growth_source, sigma_growth:{...},
    config:{...}, false_alarm_stats:{...}, scenarios:[{name, true_miss_m, seed,
    updates:[{t_before_tca_h, est_miss_m, sigma_T_m, sigma1_T_m, sigma2_T_m, pc,
    primary_extrapolated, secondary_extrapolated}]}]}
@@ -88,7 +91,8 @@ HBR_M = 14.8
 SEED = 279
 STARLINK_SATS = 12
 STARLINK_FIT_HOURS = np.array([1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0, 10.0, 12.0, 15.0, 18.0, 21.0, 24.0])
-DILUTION_SCALES = np.logspace(-2, 2, 161)
+DILUTION_SCALES = np.logspace(-3, 2, 201)
+DILUTION_MISSES_M = [5.0, 2000.0]
 UPDATES_H = [168, 144, 120, 96, 72, 60, 48, 36, 30, 24, 18, 12, 9, 6]
 THREAT_MISS_M = 50.0
 ALARM_PC = 1e-4
@@ -315,6 +319,9 @@ def main() -> None:
         options={"xatol": 1e-6},
     )
     k_max, pc_max = float(np.exp(best.x)), float(-best.fun)
+    by_miss = [{"miss_m": sig(miss0), "pc": [sig(p, 5) for p in dil]}] + [
+        {"miss_m": m, "pc": [sig(pc_circle(m, k**2 * cp0, HBR_M), 5) for k in DILUTION_SCALES]} for m in DILUTION_MISSES_M
+    ]
 
     prim, sec = primary_growth(), secondary_growth()
     covs = []
@@ -393,6 +400,8 @@ def main() -> None:
             "cov_xy_m2": [[sig(v) for v in row] for row in cp0],
             "max_pc": sig(pc_max),
             "sigma_scale_at_max": sig(k_max, 5),
+            "sigma_major_m": sig(float(np.sqrt(np.linalg.eigvalsh(cp0)[1]))),
+            "by_miss": sorted(by_miss, key=lambda b: b["miss_m"]),
             "source": f"CARA test CDM {EXAMPLE_ID} ({cdm.object1_name.strip()} x {cdm.object2_name.strip()}), "
             "encounter-plane covariance scaled by sigma_scale^2",
         },

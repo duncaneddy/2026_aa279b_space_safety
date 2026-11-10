@@ -2,7 +2,7 @@
 # requires-python = ">=3.12"
 # dependencies = ["brahe==1.8.1", "numpy"]
 # ///
-"""Two common TLE mistakes, quantified for the ISS over 24 hours.
+"""Three common TLE mistakes, quantified for the ISS over 24 hours.
 
 (a) Frame: SGP4 returns states in TEME (true equator, mean equinox of date).
     Treating that output as if it were GCRF/J2000 leaves a rotation of a few
@@ -17,6 +17,12 @@
     osculating elements in TEME. A control run of the same J2 propagator,
     started from the SGP4 state at epoch, shows how much of the difference
     comes from the force models alone.
+
+(c) Propagator: the elements are only valid with SGP4. Even with the proper
+    mean-to-osculating conversion (SGP4's own state at epoch, which applies
+    its short-period terms), a numerical propagator with an approximately
+    equivalent force model (J2-J4 zonals, Harris-Priester drag with the
+    ballistic coefficient implied by B*) drifts away from SGP4.
 
 Data source: latest ISS (NORAD 25544) GP element set from Space-Track.org
 (requires SPACETRACK_USER / SPACETRACK_PASS). The raw download is cached in
@@ -43,6 +49,7 @@ NORAD = 25544
 CACHE = RAW / f"spacetrack_gp_{NORAD}.json"
 SPAN_H = 24.0
 STEP_S = 300.0
+BSTAR_TO_BALLISTIC = 12.741621  # Cd*A/m [m^2/kg] per unit B* [1/Earth radii]
 
 
 def fetch_gp() -> dict:
@@ -96,18 +103,28 @@ def main() -> None:
     x0_teme = bh.state_koe_to_eci(oe_mean, bh.AngleFormat.DEGREES)
     x0_gcrf = bh.state_teme_to_gcrf(epoch0, x0_teme)
 
-    def j2_positions(x0: np.ndarray) -> np.ndarray:
-        prop = bh.NumericalOrbitPropagator(
-            epoch0,
-            x0,
-            bh.NumericalPropagationConfig.default(),
-            bh.ForceModelConfig(gravity=bh.GravityConfiguration.earth_zonal(bh.ZonalHarmonicsDegree.J2)),
-        )
+    def numerical_positions(x0: np.ndarray, force: bh.ForceModelConfig) -> np.ndarray:
+        prop = bh.NumericalOrbitPropagator(epoch0, x0, bh.NumericalPropagationConfig.default(), force)
         prop.propagate_to(epochs[-1])
         return np.array(prop.states_gcrf(epochs))[:, :3]
 
+    def j2_positions(x0: np.ndarray) -> np.ndarray:
+        return numerical_positions(x0, bh.ForceModelConfig(gravity=bh.GravityConfiguration.earth_zonal(bh.ZonalHarmonicsDegree.J2)))
+
+    ballistic = BSTAR_TO_BALLISTIC * float(rec["BSTAR"])
+    sgp4_like = bh.ForceModelConfig(
+        gravity=bh.GravityConfiguration.earth_zonal(bh.ZonalHarmonicsDegree.J4),
+        drag=bh.DragConfiguration(
+            model=bh.AtmosphericModel.HARRIS_PRIESTER,
+            area=bh.ParameterSource.value(ballistic),
+            cd=bh.ParameterSource.value(1.0),
+        ),
+        mass=bh.ParameterSource.value(1.0),
+    )
+
     mean_as_osc_km = np.linalg.norm(j2_positions(x0_gcrf) - r_gcrf, axis=1) / 1e3
     osc_init_km = np.linalg.norm(j2_positions(sgp.state_gcrf(epoch0)) - r_gcrf, axis=1) / 1e3
+    numerical_km = np.linalg.norm(numerical_positions(sgp.state_gcrf(epoch0), sgp4_like) - r_gcrf, axis=1) / 1e3
 
     osc = sgp.state_koe_osc(epoch0, bh.AngleFormat.DEGREES)
     da_km = (oe_mean[0] - osc[0]) / 1e3
@@ -123,6 +140,7 @@ def main() -> None:
         "teme_vs_gcrf_km": np.round(teme_vs_gcrf_km, 3).tolist(),
         "mean_as_osc_km": np.round(mean_as_osc_km, 3).tolist(),
         "osc_init_j2_km": np.round(osc_init_km, 3).tolist(),
+        "osc_init_numerical_km": np.round(numerical_km, 3).tolist(),
         "notes": {
             "teme": (
                 "SGP4 output is in TEME (true equator, mean equinox of date), not GCRF/J2000. "
@@ -137,6 +155,12 @@ def main() -> None:
                 f"{mean_as_osc_km[-1]:.0f} km after {SPAN_H:.0f} h of J2 propagation. The same "
                 f"J2 propagation started from the SGP4 state differs by {osc_init_km[-1]:.0f} km "
                 "(force-model differences only)."
+            ),
+            "propagator": (
+                "Started from SGP4's own osculating state at epoch and propagated numerically with "
+                f"J2-J4 zonals and Harris-Priester drag (Cd*A/m = {ballistic:.2e} m^2/kg from B*), "
+                f"the ISS is {numerical_km[-1]:.1f} km from SGP4 after {SPAN_H:.0f} h "
+                f"(max {numerical_km.max():.1f} km)."
             ),
             "epoch": "TLE epoch is UTC as YYDDD.DDDDDDDD; two-digit year 57-99 = 19xx, 00-56 = 20xx.",
             "catalog_number": (
@@ -156,6 +180,8 @@ def main() -> None:
     print(f"  mean-as-osculating, J2: {mean_as_osc_km[0]:.2f} km at epoch, "
           f"{mean_as_osc_km[-1]:.1f} km at {SPAN_H:.0f} h (max {mean_as_osc_km.max():.1f})")
     print(f"  control (J2 from SGP4 state): {osc_init_km[-1]:.1f} km at {SPAN_H:.0f} h")
+    print(f"  SGP4-like numerical (J4 + drag, Cd*A/m {ballistic:.2e}): {numerical_km[-1]:.1f} km at "
+          f"{SPAN_H:.0f} h (max {numerical_km.max():.1f})")
     print(f"  a_mean - a_osc at epoch: {da_km:+.2f} km")
     print(f"wrote {args.out}")
 
