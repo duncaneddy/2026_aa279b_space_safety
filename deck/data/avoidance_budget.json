@@ -1,0 +1,64 @@
+{
+ "generated_utc": "2026-11-09T04:57:31+00:00",
+ "road": {
+  "speed_mph": 65.0,
+  "head_on_closing_mph": 130.0,
+  "brake_g": 0.8,
+  "reaction_s": 1.5,
+  "brake_time_s": 3.7,
+  "brake_distance_m": 53.8,
+  "brake_distance_ft": 177,
+  "stop_distance_m": 97.4,
+  "stop_distance_ft": 320,
+  "aashto_sight_distance_ft": 644
+ },
+ "orbit": {
+  "median_closing_kms": 11.74,
+  "median_closing_mph": 26260.0,
+  "sensor_range_km": 100.0,
+  "warning_s": 8.52,
+  "thrusters": [
+   {
+    "name": "Orbion Aurora on a 100 kg smallsat",
+    "thrust_n": 0.019,
+    "mass_kg": 100.0,
+    "accel_ms2": 0.00018999999999999998,
+    "dv_mms": 1.62,
+    "shift_cm": 0.69,
+    "early": {
+     "da_m": 2.96,
+     "dT_ms": 3.67,
+     "ds_analytic_m": 27.9,
+     "ds_brahe_m": 28.0,
+     "ds_brahe_along_track_m": -27.9
+    }
+   },
+   {
+    "name": "K2 Space bus, 1 N on 2,000 kg",
+    "thrust_n": 1.0,
+    "mass_kg": 2000.0,
+    "accel_ms2": 0.0005,
+    "dv_mms": 4.26,
+    "shift_cm": 1.81,
+    "early": {
+     "da_m": 7.78,
+     "dT_ms": 9.67,
+     "ds_analytic_m": 73.3,
+     "ds_brahe_m": 73.7,
+     "ds_brahe_along_track_m": -73.3
+    }
+   }
+  ],
+  "impulse_check": {
+   "dv_ms": 1.0,
+   "two_body_shift_m": 8.518,
+   "dv_times_t_m": 8.518
+  },
+  "early_burn_orbit": {
+   "alt_km": 550.0,
+   "a_km": 6928.1,
+   "v_kms": 7.585,
+   "period_min": 95.65
+  }
+ }
+}
