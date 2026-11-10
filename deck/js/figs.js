@@ -1305,6 +1305,24 @@ figures.foster = {
     svgEl('circle', { cx: icx, cy: icy, r: 4, fill: C.ink }, ins);
     strokePath(ins, roughRect(ix, iy, s, s, { seed: 611 }), { color: C.ink, width: 2.2 });
     text(ins, ix, iy + s + 32, `hard-body disk, R = ${fmt(E.hbr_m, 0)} m (${Math.round(ks / k)}× zoom)`, { size: 22, color: C.cardinal });
+
+    // Colour scale: shading opacity is proportional to the probability density of x, in units of 1e-6 per m².
+    const peak = 1 / (2 * Math.PI * Math.sqrt(det)), unit = 1e-6, bx = ix + s + 26, bw = 22;
+    const yOf = v => iy + s - (v / peak) * s;
+    const grad = svgEl('linearGradient', { id: 'foster-scale', x1: 0, y1: 1, x2: 0, y2: 0 }, svgEl('defs', {}, ins));
+    svgEl('stop', { offset: 0, 'stop-color': 'rgb(0,108,184)', 'stop-opacity': 0 }, grad);
+    svgEl('stop', { offset: 1, 'stop-color': 'rgb(0,108,184)', 'stop-opacity': 150 / 255 }, grad);
+    svgEl('rect', { x: bx, y: iy, width: bw, height: s, fill: C.board }, ins);
+    svgEl('rect', { x: bx, y: iy, width: bw, height: s, fill: 'url(#foster-scale)', stroke: C.ink, 'stroke-width': 1.5 }, ins);
+    for (let v = 0; v <= peak; v += unit) {
+      svgEl('line', { x1: bx + bw, y1: yOf(v), x2: bx + bw + 6, y2: yOf(v), stroke: C.ink, 'stroke-width': 1.5 }, ins);
+      text(ins, bx + bw + 11, yOf(v) + 7, fmt(v / unit, 0), { size: 20 });
+    }
+    const atSec = dens(0, 0) * peak;
+    svgEl('line', { x1: bx - 4, y1: yOf(atSec), x2: bx + bw + 4, y2: yOf(atSec), stroke: C.cardinal, 'stroke-width': 3 }, ins);
+    text(ins, bx + bw + 34, yOf(atSec) + 7, `← at the secondary`, { size: 20, color: C.cardinal });
+    text(ins, bx + bw + 34, iy + s - 30, 'shading = likelihood of position', { size: 20, weight: 600 });
+    text(ins, bx + bw + 34, iy + s - 4, `density, ×10${sup(-6)} per m²`, { size: 20, color: 'rgba(46,45,41,.7)' });
   },
   animate(el, d, s, A) { drawOnAnim([el.__miss], A, 300, 700); },
 };

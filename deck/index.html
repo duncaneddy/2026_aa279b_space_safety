@@ -415,7 +415,7 @@
   <h2 class="header" data-in="up">2D probability of collision (Foster 1992)</h2>
   <div class="fig" data-fig="foster" style="left:100px; top:240px; width:880px; height:720px;"></div>
   <div class="pc-steps" style="left:1000px; top:250px; width:840px;">
-    <div class="pc-step" data-in="up" data-delay="300"><h4>1. Treat the encounter as a straight line</h4><p>At <span data-bind="pc.speed">--</span> km/s and <span data-bind="pc.cross">--</span>°, the encounter lasts under a second; covariances stay fixed.</p></div>
+    <div class="pc-step" data-in="up" data-delay="300"><h4>1. Assume motion during the encounter is a straight line</h4><p>At <span data-bind="pc.speed">--</span> km/s and <span data-bind="pc.cross">--</span>°, the encounter lasts under a second; covariances stay fixed.</p></div>
     <div class="pc-step" data-in="up" data-step="1"><h4>2. Add the two covariances</h4><p>\(C = C_1 + C_2\) is the uncertainty in the position of one object relative to the other.</p></div>
     <div class="pc-step" data-in="up" data-step="2"><h4>3. Project onto the encounter plane</h4><p>Only directions perpendicular to the relative velocity matter: <span data-bind="pc.sigma">--</span> (1σ).</p></div>
     <div class="pc-step" data-in="up" data-step="3"><h4>4. Integrate over the hard-body disk</h4><p>Relative position \(\mathbf{x}\) = primary − secondary is Gaussian around the predicted miss \(\boldsymbol{\mu}\). \(P_c\) is the chance it lands within \(R = R_1 + R_2 =\) <span data-bind="pc.hbr">--</span> m of the secondary:</p><p class="eq">\(P_c = \displaystyle\iint_{\lVert \mathbf{x} \rVert \le R} \mathcal{N}\!\left(\mathbf{x};\ \boldsymbol{\mu},\ C_{2D}\right) dA\)</p></div>
