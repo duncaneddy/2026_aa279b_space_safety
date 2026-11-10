@@ -977,7 +977,7 @@ figures.sieves = {
     });
     // Funnel bars, one color per filter.
     const svg = svgFor(el), pw_ = S.pair_windows;
-    const stages = [['all', pw_.total, C.gray], ['apsis', pw_.apsis, FC.apsis], ['path', pw_.path, FC.path], ['phase', pw_.phase, FC.phase], ['box events', S.events.length, C.cardinal]];
+    const stages = [['all', pw_.total, C.gray], ['apsis', pw_.apsis, FC.apsis], ['path', pw_.path, FC.path], ['phase', pw_.phase, FC.phase], ['candidate events', S.events.length, C.cardinal]];
     const bx = 220, bw = W - bx - 220, y0 = ch + 60, bh = 40, x = v => bw * Math.log10(Math.max(v, 1)) / Math.log10(pw_.total);
     const barsG = svgEl('g', { 'data-step': 1 }, svg);
     text(barsG, 0, y0 - 16, `${S.primary.name} vs ${fmtInt(c.catalog)} objects × ${Math.round(pw_.total / c.catalog)} half-hour windows over ${S.span_days} days (log scale) · D ≈ ${Math.round(D)} km`, { size: 22, color: 'rgba(46,45,41,.6)' });
