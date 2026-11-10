@@ -334,12 +334,17 @@ em { font-style: italic; }
 .pc-step p.eq { margin-top: 4px; text-align: center; }
 
 /* ---------- brahe slide: modules and code ---------- */
-.mod-grid { position: absolute; left: 140px; right: 140px; top: 215px; font-family: var(--sans); }
-.mod { display: grid; grid-template-columns: 230px 1fr; align-items: baseline; margin-bottom: 4px; }
-.mod h4 { margin: 0; font-size: 24px; font-weight: 600; }
-.mod p { margin: 0; font-size: 22px; line-height: 1.4; color: var(--ink-50); font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+.mod-grid { position: absolute; left: 160px; right: 160px; top: 260px; font-family: var(--sans); }
+.mod { display: grid; grid-template-columns: 270px 1fr; align-items: baseline; margin-bottom: 18px; }
+.mod h4 { margin: 0; font-size: 30px; font-weight: 600; }
+.mod p { margin: 0; font-size: 26px; line-height: 1.4; color: var(--ink-50); font-family: ui-monospace, "SF Mono", Menlo, monospace; }
 .mod.coming h4, .mod.coming p { color: var(--gray); font-style: italic; }
-.code-panel { position: absolute; top: 462px; width: 820px; height: 478px; padding: 16px 22px; }
-.code-panel h4 { margin: 0 0 8px; font-family: var(--sans); font-size: 24px; font-weight: 600; }
-.code-panel pre { margin: 0; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 16px; line-height: 1.42; color: var(--ink); white-space: pre; }
-.code-panel .cm { color: var(--paloverde); }
+.code-full { position: absolute; left: 160px; right: 160px; top: 240px; padding: 26px 34px; }
+.code-full pre { margin: 0; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 26px; line-height: 1.4; color: var(--ink); white-space: pre; }
+.code-full .kw { color: var(--cardinal); font-weight: 600; }
+.code-full .fn { color: var(--lagunita); }
+.code-full .st { color: var(--paloverde); }
+.code-full .nu { color: #C26A00; }
+.code-full .cm { color: var(--gray); font-style: italic; }
+.code-full.half { right: auto; left: 100px; width: 1000px; padding: 22px 28px; }
+.code-full.half pre { font-size: 20px; }

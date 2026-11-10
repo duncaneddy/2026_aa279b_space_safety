@@ -51,3 +51,10 @@ Found while writing the AA 279B lecture scripts (`scripts/*.py`). Each is worked
 12. `state_koe_mean` (Brouwer from GCRF) jitters ~0.2° in RAAN for ISS, too noisy for drift rates.
 13. Default DP54 tolerances (abs 1e-8 m, rel 1e-10) are slow: ~4 s for 7 days with drag, vs 1.7 s for RKF78 at
     abs 1e-6 / rel 1e-12 with better accuracy.
+
+## API ergonomics
+
+14. `CentralBody` has `Earth`, `Moon`, `Mars`, `EMB` and `SSB` but no `Sun`; heliocentric propagation needs
+    `CentralBody.from_naif_id(NAIFId.SUN)`.
+15. `spk_position(NAIFId.MARS, ...)` fails with the default `de440s` kernel ("No ephemeris path from target 499");
+    only `NAIFId.MARS_BARYCENTER` works. A hint in the error toward the barycenter or a kernel with 499 would help.

@@ -1,4 +1,4 @@
-scripts := "basemap catalog debris_clouds ssn_sensors rideshare_tracks tle_gotchas starlink_vs_gp gps_od covariance_banana screening avoidance_budget pc maneuver pc_evolution"
+scripts := "basemap catalog debris_clouds ssn_sensors rideshare_tracks tle_gotchas starlink_vs_gp gps_od covariance_banana screening avoidance_budget pc maneuver pc_evolution mars_transfer"
 
 # Regenerate every data file the deck uses
 data:

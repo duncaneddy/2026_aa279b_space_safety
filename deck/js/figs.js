@@ -2,7 +2,7 @@
 // Hand-drawn strokes (sketch.js) for frames, axes and diagrams; exact paths for orbits and data.
 import { roughLine, roughRect, roughEllipse, roughArrow, roughPolyline, svgEl, strokePath, hashSeed, mulberry32 } from './sketch.js';
 
-export const DATA_FILES = ['avoidance_budget', 'rideshare_tracks', 'catalog', 'debris_clouds', 'ssn_sensors', 'tle_gotchas', 'starlink_vs_gp', 'gps_od',
+export const DATA_FILES = ['mars_transfer', 'avoidance_budget', 'rideshare_tracks', 'catalog', 'debris_clouds', 'ssn_sensors', 'tle_gotchas', 'starlink_vs_gp', 'gps_od',
   'covariance_banana', 'screening', 'pc', 'maneuver', 'pc_evolution', 'land'];
 
 const EASE_IN = 'cubic-bezier(.2,.7,.2,1)';
@@ -1562,11 +1562,56 @@ figures.resources = {
 };
 
 /* ---------- brahe pipeline ---------- */
+/* ---------- brahe: Earth-to-Mars transfer, top-down replay ---------- */
+figures.marsTransfer = {
+  needs: ['mars_transfer'],
+  render(el, d) {
+    const M = d.mars_transfer, W = el.offsetWidth, H = el.offsetHeight, svg = svgFor(el);
+    const R = Math.max(...M.mars_orbit_au.map(p => Math.hypot(...p))) * 1.04;
+    const cx = W / 2, cy = H / 2 + 20, k = (Math.min(W, H - 80) / 2 - 10) / R;
+    const to = ([x, y]) => [cx + x * k, cy - y * k];
+    exactPath(svg, M.earth_orbit_au.map(to), { color: C.lagunita, width: 1.6, opacity: 0.45, closed: true });
+    exactPath(svg, M.mars_orbit_au.map(to), { color: C.cardinal, width: 1.6, opacity: 0.45, closed: true });
+    svgEl('circle', { cx, cy, r: 13, fill: '#E98300' }, svg);
+    text(svg, cx, cy + 40, 'Sun', { size: 22, anchor: 'middle', color: 'rgba(46,45,41,.6)' });
+    const b = to(M.spacecraft_au[Math.round(M.config.burn_after_days)]);
+    el.__burn = svgEl('g', {}, svg);
+    svgEl('circle', { cx: b[0], cy: b[1], r: 10, fill: 'none', stroke: C.green, 'stroke-width': 3 }, el.__burn);
+    text(el.__burn, b[0] + 16, b[1] + 30, `burn: ${fmt(M.config.dv_ms / 1000, 1)} km/s`, { size: 22, color: C.green, weight: 600 });
+    el.__trail = svgEl('path', { fill: 'none', stroke: C.ink, 'stroke-width': 3, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, svg);
+    const body = (col, r, label) => { const g = svgEl('g', {}, svg); svgEl('circle', { r, fill: col }, g); text(g, 14, -12, label, { size: 22, color: col, weight: 600 }); return g; };
+    el.__earth = body(C.lagunita, 9, 'Earth');
+    el.__mars = body(C.cardinal, 8, 'Mars');
+    el.__sc = svgEl('circle', { r: 6, fill: C.ink }, svg);
+    el.__day = text(svg, 0, 26, '', { size: 28, weight: 600 });
+    el.__info = text(svg, 0, 60, '', { size: 22, color: 'rgba(46,45,41,.65)' });
+    const pts = M.spacecraft_au.map(to), n = pts.length;
+    el.__n = n;
+    el.__set = i => {
+      el.__trail.setAttribute('d', linPath(pts.slice(0, i + 1)));
+      const [ex, ey] = to(M.earth_au[i]), [mx, my] = to(M.mars_au[i]);
+      el.__earth.setAttribute('transform', `translate(${ex},${ey})`);
+      el.__mars.setAttribute('transform', `translate(${mx},${my})`);
+      el.__sc.setAttribute('cx', pts[i][0]); el.__sc.setAttribute('cy', pts[i][1]);
+      el.__burn.setAttribute('display', i >= M.config.burn_after_days ? 'inline' : 'none');
+      el.__day.textContent = `Day ${M.days[i]}`;
+      el.__info.textContent = i === n - 1 ? `passes ${fmt(M.arrival.mars_distance_mkm, 2)} million km from Mars` : `${fmt(Math.hypot(...M.spacecraft_au[i]), 2)} AU from the Sun`;
+    };
+    el.__set(n - 1);
+  },
+  animate(el, d, s, A) {
+    el.__set(0);
+    return loop(t => { const f = Math.min(1, Math.max(0, (t - 800) / 7000)); el.__set(Math.round(f * (el.__n - 1))); return f < 1; });
+  },
+};
+
 /* ---------- adopters ---------- */
 figures.adopters = {
   render(el) {
-    const logos = [['Northwood', 'northwood.svg'], ['Xona', 'xona.svg'], ['Capella', 'capella.svg'], ['AWS', 'aws.svg'], ['D-Orbit USA', 'd-orbit-usa.svg'], ['KSAT', 'ksat.svg'], ['HEO', 'heo.png'], ['Trusted Space', 'trusted-space.png'], ['K2 Space', 'k2-space.svg'], ['Vyoma', 'vyoma.svg'], ['Orbital Sidekick', 'orbital-sidekick.svg']];
-    el.innerHTML = logos.map(([n, file], i) => `<div class="logo-cell" data-rough="box" data-color="dim" data-rough-key="ad${i}" style="position:absolute; left:${(i % 4) * 405}px; top:${Math.floor(i / 4) * 190}px; width:370px; height:150px; display:flex; align-items:center; justify-content:center; padding:24px 16px;"><img src="img/logos/${file}" alt="${n}" style="width:100%; height:100%; object-fit:contain;"></div>`).join('');
+    const logos = [['Northwood', 'northwood.svg'], ['Capella', 'capella.svg'], ['D-Orbit USA', 'd-orbit-usa.svg'], ['KSAT', 'ksat.svg'], ['HEO', 'heo.png'], ['Trusted Space', 'trusted-space.png'], ['K2 Space', 'k2-space.svg'], ['Vyoma', 'vyoma.svg'], ['Orbital Sidekick', 'orbital-sidekick.svg']];
+    const cols = 4, pitch = 405, cw = 370, W = (cols - 1) * pitch + cw;
+    const left = i => { const row = Math.floor(i / cols), inRow = Math.min(cols, logos.length - row * cols); return (W - ((inRow - 1) * pitch + cw)) / 2 + (i % cols) * pitch; };
+    el.innerHTML = logos.map(([n, file], i) => `<div class="logo-cell" data-rough="box" data-color="dim" data-rough-key="ad${i}" style="position:absolute; left:${left(i)}px; top:${Math.floor(i / cols) * 190}px; width:370px; height:150px; display:flex; align-items:center; justify-content:center; padding:24px 16px;"><img src="img/logos/${file}" alt="${n}" style="width:100%; height:100%; object-fit:contain;"></div>`).join('');
   },
   animate(el, d, s, A) { [...el.children].forEach((c, i) => A.push(c.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 500, delay: 200 + i * 90, easing: EASE_IN, ...FILL }))); },
 };
@@ -1574,7 +1619,7 @@ figures.adopters = {
 /* ---------- repo link ---------- */
 figures.repoLink = {
   render(el) {
-    el.innerHTML = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; gap:36px;"><img src="img/repo-qr.png" alt="QR code for the lecture repository" style="height:100%;"><div class="sans" style="font-size:30px; color:var(--ink-50); line-height:1.4">Scripts and slides<br><b style="color:var(--lagunita)">github.com/duncaneddy/2026_aa279b_space_safety</b></div></div>`;
+    el.innerHTML = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; gap:36px;"><img src="img/repo-qr.webp" alt="QR code for the lecture repository" style="height:100%;"><div class="sans" style="font-size:30px; color:var(--ink-50); line-height:1.4">Scripts and slides<br><b style="color:var(--lagunita)">github.com/duncaneddy/2026_aa279b_space_safety</b></div></div>`;
   },
   animate(el, d, s, A) { fadeIn(el.firstElementChild, A, 1200); },
 };

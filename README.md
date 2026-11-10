@@ -37,6 +37,7 @@ Scripts that query [Space-Track](https://www.space-track.org) read credentials f
 | `maneuver.py` | Maneuver trade space: along-track Δv vs lead time vs resulting Pc |
 | `pc_evolution.py` | How Pc evolves as updates arrive, and Pc dilution |
 | `covariance_banana.py` | Monte Carlo vs linearized covariance: non-Gaussian ("banana") uncertainty under drag |
+| `mars_transfer.py` | Earth-to-Mars transfer around the Sun with an impulsive burn; departure date and burn chosen by a launch-window scan |
 | `basemap.py` | Natural Earth land outline for the map figures |
 
 ## Viewing the slides

@@ -537,48 +537,61 @@
 <section class="slide" data-label="Brahe">
   <h2 class="header" data-in="up"><b>brahe</b>: an open-source astrodynamics library</h2>
   <div class="mod-grid" data-in="up" data-delay="300"><div class="mod"><h4>Time &amp; frames</h4><p>time · eop · frames · coordinates · spice · attitude</p></div><div class="mod"><h4>Dynamics</h4><p>orbits · orbit_dynamics · propagators · integrators · trajectories · relative_motion · space_weather</p></div><div class="mod"><h4>Analysis</h4><p>events · access · estimation</p></div><div class="mod"><h4>Data &amp; formats</h4><p>ccsds · itc · spacetrack · celestrak · starlink · clients · datasets</p></div><div class="mod"><h4>Tools</h4><p>constants · math · plots · cli</p></div><div class="mod coming"><h4>Coming</h4><p>conjunction screening · Pc</p></div></div>
-  <div class="code-panel" data-rough="box" data-rough-key="bcode1" style="left:120px;" data-in="up" data-step="1"><h4>Earth orbit with a chosen force model</h4><pre><code>import brahe as bh
+  <p class="caption" style="position:absolute; left:0; right:0; top:660px; text-align:center;" data-in="fade" data-step="1">Rust core, Python API, MIT licensed, developed since 2014. Every figure today is a short <code>uv run</code> script built on it.</p>
+  <div style="position:absolute; left:0; right:0; top:725px; height:220px; display:flex; align-items:center; justify-content:center; gap:32px;" data-in="fade" data-step="1"><img src="img/brahe-qr.webp" alt="QR code for brahe.space" style="height:220px;"><b class="sans" style="font-size:34px; color:var(--lagunita)">brahe.space</b></div>
+  <aside class="notes">Rust core, Python API. MIT licensed, developed since 2014. Every major submodule is listed; screening and Pc are in progress.</aside>
+</section>
 
-epoch = bh.Epoch(2026, 11, 10, 0, 0, 0.0, time_system=bh.TimeSystem.UTC)
-x0 = bh.state_koe_to_eci([bh.R_EARTH + 525e3, 0.001, 97.5, 30, 0, 0],
+<section class="slide" data-label="Brahe LEO">
+  <h2 class="header" data-in="up"><b>brahe</b>: Earth orbit with a chosen force model</h2>
+  <div class="code-full" data-rough="box" data-rough-key="bcode1" data-in="up" data-delay="300"><pre><code><span class="kw">import</span> brahe <span class="kw">as</span> bh
+
+epoch = bh.<span class="fn">Epoch</span>(<span class="nu">2026</span>, <span class="nu">11</span>, <span class="nu">10</span>, <span class="nu">0</span>, <span class="nu">0</span>, <span class="nu">0.0</span>, time_system=bh.TimeSystem.UTC)
+x0 = bh.<span class="fn">state_koe_to_eci</span>([bh.R_EARTH + <span class="nu">525e3</span>, <span class="nu">0.001</span>, <span class="nu">97.5</span>, <span class="nu">30</span>, <span class="nu">0</span>, <span class="nu">0</span>],
                          bh.AngleFormat.DEGREES)
 
-force = bh.ForceModelConfig(
-    gravity=bh.GravityConfiguration.spherical_harmonic(degree=20, order=20),
-    drag=bh.DragConfiguration(bh.AtmosphericModel.HARRIS_PRIESTER,
-        area=bh.ParameterSource.value(1.2), cd=bh.ParameterSource.value(2.2)),
+force = bh.<span class="fn">ForceModelConfig</span>(
+    gravity=bh.GravityConfiguration.<span class="fn">spherical_harmonic</span>(degree=<span class="nu">20</span>, order=<span class="nu">20</span>),
+    drag=bh.<span class="fn">DragConfiguration</span>(bh.AtmosphericModel.HARRIS_PRIESTER,
+        area=bh.ParameterSource.<span class="fn">value</span>(<span class="nu">1.2</span>), cd=bh.ParameterSource.<span class="fn">value</span>(<span class="nu">2.2</span>)),
     third_body=[bh.ThirdBody.SUN, bh.ThirdBody.MOON],
-    mass=bh.ParameterSource.value(100.0),
+    mass=bh.ParameterSource.<span class="fn">value</span>(<span class="nu">100.0</span>),
 )
-prop = bh.NumericalOrbitPropagator(epoch, x0,
-    bh.NumericalPropagationConfig.default(), force)
-prop.propagate_to(epoch + 3 * 86400.0)</code></pre></div>
-  <div class="code-panel" data-rough="box" data-rough-key="bcode2" style="left:980px;" data-in="up" data-step="2"><h4>Earth to Mars, with an impulsive burn</h4><pre><code>bh.load_spice_kernel("de440s")
-t0 = bh.Epoch(2028, 11, 1, 0, 0, 0.0, time_system=bh.TimeSystem.TDB)
-x0 = bh.spk_state(bh.NAIFId.EARTH, bh.NAIFId.SUN, t0)  <span class="cm"># on Earth's orbit</span>
+prop = bh.<span class="fn">NumericalOrbitPropagator</span>(epoch, x0,
+    bh.NumericalPropagationConfig.<span class="fn">default</span>(), force)
+prop.<span class="fn">propagate_to</span>(epoch + <span class="nu">3</span> * <span class="nu">86400.0</span>)</code></pre></div>
+  <aside class="notes">LEO with 20x20 EGM2008 gravity, Harris-Priester drag (1.2 m² area, Cd 2.2), Sun and Moon third-body, 100 kg; propagate 3 days. Runs as shown: pocs/brahe_snippets.py (523 km after 3 days).</aside>
+</section>
 
-force = bh.ForceModelConfig.for_body(bh.CentralBody.from_naif_id(10),
-    gravity=bh.GravityConfiguration.point_mass(),
+<section class="slide" data-label="Brahe Mars">
+  <h2 class="header" data-in="up"><b>brahe</b>: Earth to Mars, with an impulsive burn</h2>
+  <div class="code-full half" data-rough="box" data-rough-key="bcode2" data-in="up" data-delay="300"><pre><code>bh.<span class="fn">load_spice_kernel</span>(<span class="st">&quot;de440s&quot;</span>)
+t0 = bh.<span class="fn">Epoch</span>(<span class="nu">2028</span>, <span class="nu">12</span>, <span class="nu">10</span>, <span class="nu">0</span>, <span class="nu">0</span>, <span class="nu">0.0</span>, time_system=bh.TimeSystem.TDB)
+x0 = bh.<span class="fn">spk_state</span>(bh.NAIFId.EARTH, bh.NAIFId.SUN, t0)  <span class="cm"># on Earth&#x27;s orbit</span>
+
+sun = bh.CentralBody.<span class="fn">from_naif_id</span>(bh.NAIFId.SUN)
+force = bh.ForceModelConfig.<span class="fn">for_body</span>(sun,
+    gravity=bh.GravityConfiguration.<span class="fn">point_mass</span>(),
     third_body=[bh.ThirdBody.JUPITER, bh.ThirdBody.VENUS])
 
-def tmi(epoch, x):  <span class="cm"># trans-Mars injection: 2.95 km/s prograde</span>
-    x = x.copy()
-    x[3:] += 2945.0 * x[3:] / np.linalg.norm(x[3:])
-    return x, bh.EventAction.CONTINUE
+<span class="kw">def</span> <span class="fn">tmi</span>(epoch, x):  <span class="cm"># trans-Mars injection: 3.2 km/s prograde</span>
+    x = x.<span class="fn">copy</span>()
+    x[<span class="nu">3</span>:] += <span class="nu">3200.0</span> * x[<span class="nu">3</span>:] / np.linalg.<span class="fn">norm</span>(x[<span class="nu">3</span>:])
+    <span class="kw">return</span> x, bh.EventAction.CONTINUE
 
-cruise = bh.NumericalOrbitPropagator(t0, x0,
-    bh.NumericalPropagationConfig.default(), force)
-cruise.add_event_detector(
-    bh.TimeEvent(t0 + 86400.0, "TMI").with_callback(tmi))
-cruise.propagate_to(t0 + 259 * 86400.0)  <span class="cm"># reaches Mars' orbit, 1.52 AU</span></code></pre></div>
-  <p class="caption" style="position:absolute; left:0; right:0; top:950px; text-align:center;" data-in="fade" data-step="3">Rust core, Python API, MIT licensed, developed since 2014. Every figure today is a short <code>uv run</code> script built on it.</p>
-  <aside class="notes">Rust core, Python API. MIT licensed, developed since 2014. Every major submodule is listed. Left: LEO with 20x20 gravity, Harris-Priester drag, Sun and Moon. Right: Sun-centered propagation with Jupiter and Venus perturbations, starting on Earth's orbit from DE440s; a TimeEvent callback applies a 2.95 km/s prograde burn after one day, reaching 1.53 AU at 259 days. Both snippets run as shown: pocs/brahe_snippets.py.</aside>
+cruise = bh.<span class="fn">NumericalOrbitPropagator</span>(t0, x0,
+    bh.NumericalPropagationConfig.<span class="fn">default</span>(), force)
+cruise.<span class="fn">add_event_detector</span>(
+    bh.<span class="fn">TimeEvent</span>(t0 + <span class="nu">86400.0</span>, <span class="st">&quot;TMI&quot;</span>).<span class="fn">with_callback</span>(tmi))
+cruise.<span class="fn">propagate_to</span>(t0 + <span class="nu">204</span> * <span class="nu">86400.0</span>)  <span class="cm"># passes Mars</span></code></pre></div>
+  <div class="fig" data-fig="marsTransfer" style="left:1130px; top:230px; width:690px; height:720px;"></div>
+  <aside class="notes">Sun-centered propagation (central body from NAIF ID 10, the Sun) with Jupiter and Venus perturbations, starting on Earth's orbit from the DE440s ephemeris. A TimeEvent callback applies a 3.2 km/s prograde burn one day in. Departure date and burn size come from a scan of the 2028-29 window (scripts/mars_transfer.py); the spacecraft passes about 0.46 million km from Mars on day 204. The animation replays the daily states. The snippet runs as shown: pocs/brahe_snippets.py.</aside>
 </section>
 
 <section class="slide" data-label="Adopters">
   <h2 class="header center" data-in="up">Organizations using brahe in operations</h2>
   <div class="fig" data-fig="adopters" style="left:160px; top:280px; width:1600px; height:560px;"></div>
-  <aside class="notes">Northwood, Xona, Capella, AWS, D-Orbit USA, KSAT, HEO Space, Trusted Space, K2 Space, Vyoma Space, Orbital Sidekick.</aside>
+  <aside class="notes">Northwood, Capella, D-Orbit USA, KSAT, HEO Space, Trusted Space, K2 Space, Vyoma Space, Orbital Sidekick.</aside>
 </section>
 
 <section class="slide" data-label="Close">

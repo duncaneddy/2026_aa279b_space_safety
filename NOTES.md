@@ -146,11 +146,11 @@ tautologies or flourishes. See `design-guidelines.md` section 8.
 | 34–38 | Assess section | mcLoop, mcMethod, mcCost, foster, cdmCard ← pc; banana (interactive slider) | fresh |
 | 39–43 | Decide section | tradespace ← maneuver, pcEvolution ← pc_evolution, decisionLadder | fresh |
 | 44–47 | Share section | afterManeuver | fresh |
-| 48–55 | New operator, brahe, close | resources, brahe modules + code, adopters, repoLink | magic move q-op |
+| 48–55 | New operator, brahe, close | resources, brahe modules, LEO code, Mars code + marsTransfer ← mars_transfer, adopters, repoLink | magic move q-op |
 | B | Backup | allVsAll, ssnTable, statements | fresh |
 
 ### Needed from Duncan
 
 - `deck/img/stanford-logo.png` (footer + title)
-- `deck/img/logos/<slug>.png` for adopters (northwood, xona, capella, aws, d-orbit-usa, ksat, heo, trusted-space, k2-space, vyoma, orbital-sidekick)
+- `deck/img/logos/<slug>.png` for adopters (northwood, capella, d-orbit-usa, ksat, heo, trusted-space, k2-space, vyoma, orbital-sidekick)
 - Repo URL for the closing slide QR
