@@ -943,11 +943,14 @@ figures.sieves = {
       const svg = svgEl('svg', { width: cw - 36, height: 170, viewBox: `0 0 ${cw - 36} 170` }, host);
       const cx = (cw - 36) / 2, cy = 86, col = FC[key];
       if (key === 'apsis') {
-        // Secondary's perigee-apogee shell (band), primary's circular orbit inside it.
-        svgEl('path', { d: linPath(circlePts(cx, cy, 78, 78)) + 'Z' + linPath(circlePts(cx, cy, 50, 50).reverse()) + 'Z', fill: col, opacity: 0.16, 'fill-rule': 'evenodd' }, svg);
-        exactPath(svg, circlePts(cx, cy, 78, 78), { color: col, width: 2, dash: '6 6' });
-        exactPath(svg, circlePts(cx, cy, 50, 50), { color: col, width: 2, dash: '6 6' });
-        exactPath(svg, circlePts(cx, cy, 64, 64), { color: C.ink, width: 3 });
+        // Two orbits with Earth at the focus: the primary's altitude band (padded by D) and an eccentric secondary crossing it.
+        const kep = (q, Q, w) => { const e = (Q - q) / (Q + q), p = q * (1 + e); return Array.from({ length: 181 }, (_, j) => { const th = (j / 180) * 2 * Math.PI, r = p / (1 + e * Math.cos(th)); return [cx + r * Math.cos(th + w), cy - r * Math.sin(th + w)]; }); };
+        const q1 = 60, Q1 = 66, pad = 9;
+        svgEl('path', { d: linPath(circlePts(cx, cy, Q1 + pad, Q1 + pad)) + 'Z' + linPath(circlePts(cx, cy, q1 - pad, q1 - pad).reverse()) + 'Z', fill: col, opacity: 0.16, 'fill-rule': 'evenodd' }, svg);
+        exactPath(svg, circlePts(cx, cy, Q1 + pad, Q1 + pad), { color: col, width: 1.6, dash: '5 6' });
+        exactPath(svg, circlePts(cx, cy, q1 - pad, q1 - pad), { color: col, width: 1.6, dash: '5 6' });
+        exactPath(svg, kep(q1, Q1, 0.4), { color: C.ink, width: 3 });
+        exactPath(svg, kep(40, 150, Math.PI), { color: 'rgba(46,45,41,.55)', width: 2.4, dash: '8 7' });
       }
       if (key === 'path') {
         const A_ = circlePts(cx, cy, 96, 50, 0.25, 180), B_ = circlePts(cx + 6, cy + 4, 90, 58, -0.45, 180);
